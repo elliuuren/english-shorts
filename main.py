@@ -35,13 +35,15 @@ MUSIC_DIR = ROOT / "assets"  # optional: drop a royalty-free music.mp3 in here
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 PEXELS_KEY = os.getenv("PEXELS_API_KEY", "")
 PIXABAY_KEY = os.getenv("PIXABAY_API_KEY", "")
-VOICE =os.getenv("VOICE", "en-US-AndrewNeural")
-VOICE_RATE = os.getenv("VOICE_RATE", "+6%")
+VOICE = os.getenv("VOICE", "en-US-AndrewMultilingualNeural")
+VOICE_RATE = os.getenv("VOICE_RATE", "+3%")
 VOICE_PITCH = os.getenv("VOICE_PITCH", "+0Hz")
 YT_PRIVACY = os.getenv("YT_PRIVACY", "private")  # private | unlisted | public
 GREETING = os.getenv("GREETING", "").strip()  # optional spoken greeting before the hook
 CTA = os.getenv("CTA", "Follow for one tip every day.").strip()  # "" = no spoken CTA
 FONT = os.getenv("CAPTION_FONT", "Montserrat")
+NO_PEOPLE = os.getenv("NO_PEOPLE", "1") == "1"  # 1 = no humans at all in the footage; 0 = men allowed
+MUSIC_VOLUME = os.getenv("MUSIC_VOLUME", "0.07")  # background music loudness (0.03 quiet ... 0.15 loud)
 FPS = 30
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -80,6 +82,44 @@ BANNED = [
     "tapestry", "in this video", "journey", "ultimate guide",
 ]
 
+# Footage rules: stock clips are skipped if their tags/title contain any of these words.
+BLOCKED_ALWAYS = {
+    "woman", "women", "girl", "girls", "lady", "ladies", "female", "females", "bride", "wedding", "bikini",
+    "lingerie", "swimsuit", "sexy", "lips", "kiss", "kissing", "romantic", "romance", "dating", "couple",
+    "couples", "makeup", "beauty", "fashion", "dress", "wine", "beer", "alcohol", "cocktail", "cocktails",
+    "whisky", "whiskey", "vodka", "champagne", "bar", "pub", "nightclub", "club", "party", "dance",
+    "dancing", "casino", "gambling", "poker", "pork", "bacon", "pig", "cigarette", "cigarettes", "smoking",
+    "hookah", "tattoo",
+}
+BLOCKED_PEOPLE = {
+    "man", "men", "boy", "boys", "people", "person", "persons", "crowd", "family", "child", "children", "kid",
+    "kids", "baby", "human", "humans", "face", "student", "students", "teacher", "friend", "friends", "guy",
+    "male", "businessman", "audience", "teen", "teenager", "adult", "portrait", "selfie", "pedestrian",
+    "pedestrians", "tourist", "tourists", "worker", "workers", "team", "community",
+}
+
+
+def blocked_words():
+    words = set(BLOCKED_ALWAYS)
+    if NO_PEOPLE:
+        words |= BLOCKED_PEOPLE
+    words |= {w.strip().lower() for w in os.getenv("EXTRA_BLOCKED_WORDS", "").split(",") if w.strip()}
+    return words
+
+
+def is_clean(text):
+    toks = set(re.findall(r"[a-z]+", str(text).lower()))
+    toks |= {t[:-1] for t in toks if t.endswith("s")}
+    return not (toks & blocked_words())
+
+
+def clean_query(query):
+    """drop blocked words from a footage search; if nothing is left, use a calm default"""
+    bad = blocked_words()
+    kept = [w for w in str(query).split() if re.sub(r"[^a-z]", "", w.lower()) not in bad]
+    return " ".join(kept) if kept else random.choice(FALLBACK_QUERIES)
+
+
 SAMPLE_LESSON = {
     "topic": "I am agree vs I agree",
     "title": "Stop saying \"I am agree\" (say this instead)",
@@ -97,8 +137,12 @@ SAMPLE_LESSON = {
 }
 
 
+T0 = time.time()
+
+
 def log(*a):
-    print(*a, flush=True)
+    s = int(time.time() - T0)
+    print(f"[{s // 60}:{s % 60:02d}]", *a, flush=True)
 
 
 def run(cmd, cwd=None):
@@ -211,6 +255,20 @@ def build_prompt(category, hook_style, recent):
         if CTA
         else "End on the comment question. No call to action."
     )
+    if NO_PEOPLE:
+        visual_rule = (
+            'VISUALS: for each segment give "visual", a 2 to 4 word search phrase for stock video that a camera could really film. '
+            "This channel's audience wants modest, family-friendly visuals: NO people at all (no men, women, children, crowds, faces), "
+            "no alcohol, no pork, no romance, no nightlife, no gambling, no smoking. Use calm things instead: nature, sky, ocean, "
+            "mountains, rain, city skylines, buildings, books, pens, notebooks, desks, keyboards, tea or coffee cups, clocks, plants, lamps "
+            '(for example "rain window", "books library", "sunrise mountains", "typing keyboard", "tea cup steam"). Never abstract ideas, never text.'
+        )
+    else:
+        visual_rule = (
+            'VISUALS: for each segment give "visual", a 2 to 4 word search phrase for stock video that a camera could really film. '
+            "Modest, family-friendly visuals only: no women or girls, no alcohol, no pork, no romance, no nightlife, no gambling, no smoking. "
+            'Prefer nature, cities, objects, books, desks, keyboards, hands. Never abstract ideas, never text.'
+        )
     shape = {
         "topic": "3-6 word label of the lesson, used to avoid repeats",
         "title": "YouTube title, max 60 characters, makes a learner curious, no lies",
@@ -245,7 +303,7 @@ Teach only things that are definitely correct and natural in standard English to
 
 LENGTH: 6 to 8 segments, 85 to 110 spoken words in total.
 
-VISUALS: for each segment give "visual", a 2 to 4 word search phrase for stock video that a camera could really film (for example "woman laughing cafe", "man typing laptop night", "friends walking city"). Never abstract ideas, never text.
+{visual_rule}
 CARD: optional big on-screen text for the key phrase of that segment, max 5 words, otherwise "". card_kind is "wrong" for an incorrect version, "right" for a correct version, "neutral" otherwise. Use cards on 3 to 5 segments.
 
 Return only JSON in exactly this shape:
@@ -275,7 +333,7 @@ def validate(lesson):
         kind = s.get("card_kind") if s.get("card_kind") in ("wrong", "right", "neutral") else "neutral"
         clean.append({
             "say": say,
-            "visual": clean_text(s.get("visual")) or "city street",
+            "visual": clean_query(clean_text(s.get("visual"))),
             "card": clean_text(s.get("card"))[:40],
             "card_kind": kind,
         })
@@ -339,37 +397,48 @@ def make_lesson(history):
 
 
 # ---------------------------------------------------------------- voice (TTS)
-async def _synth(text, voice, out_path):
+async def _synth(text, voice, out_path, boundary="WordBoundary"):
     import edge_tts
 
     try:
-        comm = edge_tts.Communicate(text, voice, rate=VOICE_RATE, pitch=VOICE_PITCH, boundary="WordBoundary")
-    except TypeError:  # older edge-tts versions only send word boundaries by default
+        comm = edge_tts.Communicate(text, voice, rate=VOICE_RATE, pitch=VOICE_PITCH, boundary=boundary)
+    except TypeError:  # older edge-tts versions have no 'boundary' option
         comm = edge_tts.Communicate(text, voice, rate=VOICE_RATE, pitch=VOICE_PITCH)
-    words = []
+    events = []
     with open(out_path, "wb") as f:
         async for chunk in comm.stream():
             if chunk["type"] == "audio":
                 f.write(chunk["data"])
-            elif chunk["type"] == "WordBoundary":
+            elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
                 start = chunk["offset"] / 1e7
-                words.append((chunk["text"], start, start + chunk["duration"] / 1e7))
+                events.append((chunk["text"], start, start + chunk["duration"] / 1e7))
     if os.path.getsize(out_path) < 2000:
         raise RuntimeError("TTS returned no audio")
-    return words
+    return events
 
 
 def tts(text, out_path):
-    voices = [VOICE] + [v for v in ("en-US-AriaNeural", "en-US-GuyNeural") if v != VOICE]
+    """returns (word_timings, sentence_timings). Sentence timings are only used when a voice gives no word timings."""
+    voices = [VOICE] + [v for v in ("en-US-BrianMultilingualNeural", "en-US-AndrewNeural", "en-US-GuyNeural") if v != VOICE]
+    n_words = len(text.split())
     last = None
     for voice in voices:
         for attempt in range(3):
             try:
-                words = asyncio.run(_synth(text, voice, out_path))
-                log(f"voice: {voice}, word timings: {len(words)}")
-                return words
+                events = asyncio.run(_synth(text, voice, out_path, "WordBoundary"))
+                if len(events) >= n_words * 0.8:
+                    log(f"voice: {voice}, word timings: {len(events)}")
+                    return events, []
+                # this voice only reports sentences: ask again so audio and timings come from the same take
+                events = asyncio.run(_synth(text, voice, out_path, "SentenceBoundary"))
+                if len(events) >= n_words * 0.8:  # old edge-tts ignored the option and sent words
+                    log(f"voice: {voice}, word timings: {len(events)}")
+                    return events, []
+                log(f"voice: {voice}, sentence timings: {len(events)}")
+                return [], events
             except Exception as e:
                 last = e
+                log(f"voice attempt failed ({voice}): {e}")
                 time.sleep(3 * (attempt + 1))
     raise RuntimeError(f"text-to-speech failed: {last}")
 
@@ -378,7 +447,25 @@ def probe_duration(path):
     return float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]).strip())
 
 
-def align(tokens, wb, total):
+def _spread(tokens, start, end):
+    """spread words between two times, weighted by word length and punctuation pauses"""
+    ws = []
+    for t in tokens:
+        w = len(re.sub(r"\W", "", t)) + 2
+        if re.search(r"[.!?]\"?$", t):
+            w += 5
+        elif re.search(r"[,;:]\"?$", t) or t.endswith("..."):
+            w += 2
+        ws.append(w)
+    scale = max(end - start, 0.1) / sum(ws)
+    out, t0 = [], start
+    for w in ws:
+        out.append((t0, t0 + w * scale))
+        t0 += w * scale
+    return out
+
+
+def align(tokens, wb, total, sents=None):
     """(start, end) in seconds for every spoken word."""
     n = len(tokens)
     times = []
@@ -386,20 +473,15 @@ def align(tokens, wb, total):
         for i in range(n):
             j = i if len(wb) == n else min(len(wb) - 1, int(i * len(wb) / n))
             times.append((wb[j][1], wb[j][2]))
-    else:  # no word timings: spread words over the audio, weighted by length and punctuation pauses
-        weights = []
-        for t in tokens:
-            w = len(re.sub(r"\W", "", t)) + 2
-            if re.search(r"[.!?]\"?$", t):
-                w += 5
-            elif re.search(r"[,;:]\"?$", t) or t.endswith("..."):
-                w += 2
-            weights.append(w)
-        scale = (total - 0.3) / sum(weights)
-        t0 = 0.05
-        for w in weights:
-            times.append((t0, t0 + w * scale))
-            t0 += w * scale
+    elif sents and sum(len(s[0].split()) for s in sents) == n:  # anchor every sentence at its real time
+        i = 0
+        for text_, s0, s1 in sents:
+            c = len(text_.split())
+            if c:
+                times += _spread(tokens[i:i + c], s0, s1)
+                i += c
+    else:  # no usable timings: spread the words over the whole audio
+        times = _spread(tokens, 0.05, total - 0.25)
     fixed, prev = [], 0.0
     for s, e in times:  # keep it monotonic
         s = max(s, prev)
@@ -418,7 +500,7 @@ def pexels_pick(query, used):
         timeout=30,
     )
     r.raise_for_status()
-    vids = [v for v in r.json().get("videos", []) if f"pexels:{v['id']}" not in used and v.get("duration", 0) >= 4]
+    vids = [v for v in r.json().get("videos", []) if f"pexels:{v['id']}" not in used and v.get("duration", 0) >= 4 and is_clean(v.get("url", ""))]
     random.shuffle(vids)
     for v in vids:
         files = [f for f in v.get("video_files", []) if f.get("file_type") == "video/mp4" and (f.get("height") or 0) >= (f.get("width") or 0)]
@@ -435,7 +517,7 @@ def pixabay_pick(query, used):
         timeout=30,
     )
     r.raise_for_status()
-    hits = [h for h in r.json().get("hits", []) if f"pixabay:{h['id']}" not in used and h.get("duration", 0) >= 4]
+    hits = [h for h in r.json().get("hits", []) if f"pixabay:{h['id']}" not in used and h.get("duration", 0) >= 4 and is_clean(h.get("tags", ""))]
     random.shuffle(hits)
     for h in hits:
         sizes = [v for v in (h.get("videos") or {}).values() if v.get("url")]
@@ -469,7 +551,10 @@ def download(url, dest):
                 f.write(chunk)
 
 
-FALLBACK_QUERIES = ["people talking", "city street evening", "typing laptop", "coffee shop", "walking city", "reading book"]
+FALLBACK_QUERIES = [
+    "city skyline", "books library", "writing notebook", "typing keyboard", "clouds sky",
+    "mountains nature", "ocean waves", "tea cup steam", "rain window", "sunrise hills",
+]
 GRADIENTS = [("0x0f2027", "0x2c5364"), ("0x41295a", "0x2f0743"), ("0x134e5e", "0x71b280"), ("0x232526", "0x414345"), ("0x1f4037", "0x99f2c8")]
 CLIP_VF = (
     "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,"
@@ -579,18 +664,21 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 # ------------------------------------------------------------------ render
 def render_final(total, out):
-    music = next(iter(sorted(MUSIC_DIR.glob("music.*"))), None) if MUSIC_DIR.exists() else None
+    exts = (".mp3", ".m4a", ".wav", ".ogg", ".aac")
+    tracks = [p for p in MUSIC_DIR.iterdir() if p.suffix.lower() in exts] if MUSIC_DIR.exists() else []
+    music = random.choice(tracks) if tracks else None  # any audio file in assets/ works; one is picked per video
+    log(f"background music: {music.name if music else 'none (add a file to the assets folder)'}")
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", "video.mp4", "-i", "voice.mp3"]
     tail = "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100[a]"
     if music:
         cmd += ["-stream_loop", "-1", "-i", music]
-        fc = f"[1:a]apad=pad_dur=1[v];[2:a]volume=0.07[m];[v][m]amix=inputs=2:duration=first:normalize=0,{tail}"
+        fc = f"[1:a]apad=pad_dur=1[v];[2:a]volume={MUSIC_VOLUME}[m];[v][m]amix=inputs=2:duration=first:normalize=0,{tail}"
     else:
         fc = f"[1:a]apad=pad_dur=1,{tail}"
     fc += ";[0:v]ass=captions.ass[vv]"
     cmd += [
         "-filter_complex", fc, "-map", "[vv]", "-map", "[a]", "-t", f"{total:.3f}",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out,
     ]
     run(cmd, cwd=WORK)
@@ -669,12 +757,12 @@ def main():
     if args.offline_test:
         run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=220:duration=36",
              "-af", "volume=0.1", "-ar", "24000", "-ac", "1", voice_path])
-        wb = []
+        wb, sents = [], []
     else:
-        wb = tts(text, voice_path)
+        wb, sents = tts(text, voice_path)
     audio_dur = probe_duration(voice_path)
     total = q(audio_dur + 0.6)
-    times = align(tokens, wb, audio_dur)
+    times = align(tokens, wb, audio_dur, sents)
 
     # which words belong to which segment -> time range of each segment
     starts, idx = [], 0
