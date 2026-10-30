@@ -23,13 +23,14 @@ jobs:
     timeout-minutes: 25
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
       YT_PRIVACY: private
       VOICE: en-US-AndrewMultilingualNeural
-      VOICE_RATE: "+6%"
+      VOICE_RATE: "+3%"
       GREETING: ""
       CTA: "Follow for one tip every day."
     steps:
@@ -59,6 +60,16 @@ jobs:
           path: output/short_*.mp4
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Publish the video as a Release
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f=$(ls output/short_*.mp4 2>/dev/null | head -n1)
+          if [ -z "$f" ]; then echo "no video to publish"; exit 0; fi
+          gh release create "short-$(date -u +%Y%m%d-%H%M%S)" "$f" --title "Short $(date -u +%F)" --notes "Auto-generated Short."
+          gh release list --limit 100 --json tagName --jq '.[14:][].tagName' | while read t; do gh release delete "$t" --cleanup-tag --yes; done
 
       - name: Save topic history
         run: |
