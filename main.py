@@ -41,7 +41,22 @@ VOICE_PITCH = os.getenv("VOICE_PITCH", "+0Hz")
 YT_PRIVACY = os.getenv("YT_PRIVACY", "private")  # private | unlisted | public
 GREETING = os.getenv("GREETING", "").strip()  # optional spoken greeting before the hook
 CTA = os.getenv("CTA", "Follow for one tip every day.").strip()  # "" = no spoken CTA
-FONT = os.getenv("CAPTION_FONT", "Montserrat")
+
+
+def pick_font():
+    """best installed heavy font: CAPTION_FONT if set, else Montserrat ExtraBold > Poppins ExtraBold > Inter > DejaVu"""
+    forced = os.getenv("CAPTION_FONT", "").strip()
+    for name in ([forced] if forced else []) + ["Montserrat ExtraBold", "Poppins ExtraBold", "Inter", "DejaVu Sans"]:
+        try:
+            fam = subprocess.run(["fc-match", "-f", "%{family}", name], capture_output=True, text=True).stdout.lower()
+        except Exception:
+            continue
+        if name.split()[0].lower() in fam:
+            return name
+    return "DejaVu Sans"
+
+
+FONT = pick_font()
 NO_PEOPLE = os.getenv("NO_PEOPLE", "1") == "1"  # 1 = no humans at all in the footage; 0 = men allowed
 MUSIC_VOLUME = os.getenv("MUSIC_VOLUME", "0.07")  # background music loudness (0.03 quiet ... 0.15 loud)
 FPS = 30
@@ -89,13 +104,15 @@ BLOCKED_ALWAYS = {
     "couples", "makeup", "beauty", "fashion", "dress", "wine", "beer", "alcohol", "cocktail", "cocktails",
     "whisky", "whiskey", "vodka", "champagne", "bar", "pub", "nightclub", "club", "party", "dance",
     "dancing", "casino", "gambling", "poker", "pork", "bacon", "pig", "cigarette", "cigarettes", "smoking",
-    "hookah", "tattoo",
+    "hookah", "tattoo", "greenscreen", "chroma", "keying", "alpha", "matte", "overlay",
 }
 BLOCKED_PEOPLE = {
     "man", "men", "boy", "boys", "people", "person", "persons", "crowd", "family", "child", "children", "kid",
     "kids", "baby", "human", "humans", "face", "student", "students", "teacher", "friend", "friends", "guy",
     "male", "businessman", "audience", "teen", "teenager", "adult", "portrait", "selfie", "pedestrian",
     "pedestrians", "tourist", "tourists", "worker", "workers", "team", "community",
+    "hand", "hands", "finger", "fingers", "nail", "nails", "manicure", "ring", "rings", "jewelry", "jewellery",
+    "body", "skin", "legs", "feet", "foot", "arm", "arms", "hair", "silhouette", "shadow", "walking", "running",
 }
 
 
@@ -268,10 +285,10 @@ def build_prompt(category, hook_style, recent, notes=""):
     if NO_PEOPLE:
         visual_rule = (
             'VISUALS: for each segment give "visual", a 2 to 4 word search phrase for stock video that a camera could really film. '
-            "This channel's audience wants modest, family-friendly visuals: NO people at all (no men, women, children, crowds, faces), "
+            "This channel's audience wants modest, family-friendly visuals: NO people at all (no men, women, children, crowds, faces, hands, fingers or any body parts), "
             "no alcohol, no pork, no romance, no nightlife, no gambling, no smoking. Use calm things instead: nature, sky, ocean, "
-            "mountains, rain, city skylines, buildings, books, pens, notebooks, desks, keyboards, tea or coffee cups, clocks, plants, lamps "
-            '(for example "rain window", "books library", "sunrise mountains", "typing keyboard", "tea cup steam"). Never abstract ideas, never text.'
+            "mountains, rain, city skylines, buildings, books, desks, keyboards, tea or coffee cups, clocks, plants, lamps "
+            '(for example "rain window", "books library", "sunrise mountains", "keyboard closeup", "tea cup steam"). Never abstract ideas, never text.'
         )
     else:
         visual_rule = (
@@ -532,7 +549,7 @@ def pexels_pick(query, used):
 def pixabay_pick(query, used):
     r = requests.get(
         "https://pixabay.com/api/videos/",
-        params={"key": PIXABAY_KEY, "q": query[:100], "per_page": 20, "safesearch": "true", "min_height": 720},
+        params={"key": PIXABAY_KEY, "q": query[:100], "per_page": 20, "safesearch": "true", "min_height": 720, "video_type": "film"},
         timeout=30,
     )
     r.raise_for_status()
@@ -571,7 +588,7 @@ def download(url, dest):
 
 
 FALLBACK_QUERIES = [
-    "city skyline", "books library", "writing notebook", "typing keyboard", "clouds sky",
+    "city skyline", "books library", "open book pages", "keyboard closeup", "clouds sky",
     "mountains nature", "ocean waves", "tea cup steam", "rain window", "sunrise hills",
 ]
 GRADIENTS = [("0x0f2027", "0x2c5364"), ("0x41295a", "0x2f0743"), ("0x134e5e", "0x71b280"), ("0x232526", "0x414345"), ("0x1f4037", "0x99f2c8")]
@@ -637,15 +654,20 @@ def esc(t):
     return t.replace("\\", "").replace("{", "(").replace("}", ")").replace("\n", " ")
 
 
-HL = r"{\c&H00E5FF&}"  # active word colour (yellow)
-RS = r"{\c&HFFFFFF&}"
-POP = r"{\fscx108\fscy108\t(0,90,\fscx100\fscy100)}"
-CARD_COLORS = {"wrong": r"{\c&H4B4BFF&\s1}", "right": r"{\c&H78DC50&}", "neutral": r"{\c&HFFFFFF&}"}
-CHANNEL_TAG = os.getenv("CHANNEL_TAG", "ENGLISH TIP").strip()  # small label at the top; "" = none
-# card entrance: starts small, overshoots, settles (a small tilt-shake is added for 'wrong' cards)
-CARD_IN = r"{\fscx70\fscy70\t(0,150,\fscx112\fscy112)\t(150,260,\fscx100\fscy100)}"
-CARD_SHAKE = r"{\t(260,320,\frz2.5)\t(320,380,\frz-2.5)\t(380,440,\frz0)}"
-BAR = r"m 0 0 l 1080 0 1080 8 0 8"
+HL = r"\c&H00E5FF&"  # active word colour (yellow)
+WHITE = r"\c&HFFFFFF&"
+# Fixed lanes (1080x1920). The card is anchored by its BOTTOM edge at CARD_Y (it grows upward);
+# captions are anchored by their TOP edge at CAP_Y. The gap between them means they can never overlap.
+CARD_Y = 860
+CAP_Y = 960
+CHANNEL_TAG = os.getenv("CHANNEL_TAG", "").strip()  # optional small label at the very top; "" = none
+# card panel colours (BGR): panel, text
+CARD_LOOK = {
+    "wrong": (r"\3c&H2626DC&", r"\c&HFFFFFF&\s1"),   # red panel, white struck-through text
+    "right": (r"\3c&H3D8015&", r"\c&HFFFFFF&"),      # green panel, white text
+    "neutral": (r"\3c&HFFFFFF&", r"\c&H271811&"),    # white panel, dark text
+}
+FLASH = r"m 0 0 l 1080 0 1080 1920 0 1920"
 
 
 def chunk_tokens(tokens, size=3):
@@ -660,7 +682,31 @@ def chunk_tokens(tokens, size=3):
     return chunks
 
 
+def card_events(s, a, b):
+    """one key-phrase card: solid panel, entrance depends on its meaning"""
+    kind = s["card_kind"]
+    n = len(s["card"])
+    size = 100 if n <= 14 else 88 if n <= 22 else 76
+    panel, textcol = CARD_LOOK[kind]
+    base = f"\\an2\\fs{size}\\bord30\\shad0\\4a&HFF&{panel}{textcol}"
+    t0 = a + 0.1
+    if not MOTION:
+        pos = f"\\pos(540,{CARD_Y})"
+        enter = r"\fad(100,100)"
+    elif kind == "wrong":    # slams in, then a short shake: "nope"
+        pos = f"\\pos(540,{CARD_Y})"
+        enter = r"\fad(60,100)\fscx135\fscy135\t(0,120,\fscx100\fscy100)\t(150,210,\frz2.5)\t(210,270,\frz-2.5)\t(270,330,\frz0)"
+    elif kind == "right":    # unfolds from the centre
+        pos = f"\\pos(540,{CARD_Y})"
+        enter = r"\fad(0,100)\clip(540,0,540,1920)\t(0,300,\clip(0,0,1080,1920))\fscx92\fscy92\t(0,300,\fscx100\fscy100)"
+    else:                    # rises into place
+        pos = f"\\move(540,{CARD_Y + 40},540,{CARD_Y},0,260)"
+        enter = r"\fad(140,100)"
+    return f"Dialogue: 2,{ass_time(t0)},{ass_time(b)},Card,,0,0,0,,{{{base}{pos}{enter}}}{esc(s['card'])}"
+
+
 def build_ass(tokens, times, segs, seg_bounds, total):
+    bold = 0 if "extrabold" in FONT.lower() else -1
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -670,9 +716,9 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,{FONT},88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,2,2,70,70,560,1
-Style: Card,{FONT},118,&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,-1,0,0,0,100,100,0,0,3,26,0,8,80,80,330,1
-Style: Tag,{FONT},38,&H00FFFFFF,&H00FFFFFF,&H80000000,&H80000000,-1,0,0,0,100,100,6,0,3,16,0,8,80,80,150,1
+Style: Cap,{FONT},92,&H00FFFFFF,&H00FFFFFF,&H00201008,&H80000000,{bold},0,0,0,100,100,0,0,1,7,3,8,90,90,{CAP_Y},1
+Style: Card,{FONT},100,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H00000000,{bold},0,0,0,100,100,0,0,3,30,0,2,90,90,0,1
+Style: Tag,{FONT},36,&H00FFFFFF,&H00FFFFFF,&H80000000,&H80000000,{bold},0,0,0,100,100,6,0,3,14,0,8,80,80,170,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -691,21 +737,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             parts = []
             for j in chunk:
                 w = esc(tokens[j]).replace('"', "").rstrip(".,;:")
-                parts.append(f"{HL}{w}{RS}" if j == idx else w)
-            text = ("" if k else POP) + " ".join(parts)
-            lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{text}")
+                if j == idx:  # the word being spoken: accent colour + a quick, small pop
+                    pop = r"\fscx114\fscy114\t(0,90,\fscx100\fscy100)" if MOTION else ""
+                    parts.append(f"{{{HL}{pop}}}{w}{{{WHITE}\\fscx100\\fscy100}}")
+                else:
+                    parts.append(w)
+            lines.append(f"Dialogue: 1,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{' '.join(parts)}")
     for (a, b), s in zip(seg_bounds, segs):
         if s["card"]:
-            motion = (CARD_IN + (CARD_SHAKE if s["card_kind"] == "wrong" else "")) if MOTION else ""
-            body = f"{{\\fad(120,120)}}{motion}{CARD_COLORS[s['card_kind']]}{esc(s['card'])}"
-            lines.append(f"Dialogue: 1,{ass_time(a + 0.1)},{ass_time(b)},Card,,0,0,0,,{body}")
-    if MOTION:
-        ms = int(total * 1000)
-        d = f"{{\\an7\\pos(0,70)\\p1\\bord0\\shad0"
-        lines.append(f"Dialogue: 0,{ass_time(0)},{ass_time(total)},Cap,,0,0,0,,{d}\\1c&HFFFFFF&\\1a&HC0&}}{BAR}")
-        lines.append(f"Dialogue: 0,{ass_time(0)},{ass_time(total)},Cap,,0,0,0,,{d}\\1c&H00E5FF&\\fscx0\\t(0,{ms},\\fscx100)}}{BAR}")
-        if CHANNEL_TAG:
-            lines.append(f"Dialogue: 0,{ass_time(0.2)},{ass_time(total)},Tag,,0,0,0,,{{\\fad(350,0)}}{esc(CHANNEL_TAG)}")
+            lines.append(card_events(s, a, b))
+    if MOTION:  # soft dip at every cut so scene changes feel smooth, not abrupt
+        for a, _ in seg_bounds[1:]:
+            lines.append(
+                f"Dialogue: 0,{ass_time(a)},{ass_time(a + 0.26)},Cap,,0,0,0,,"
+                f"{{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c&H000000&\\1a&H60&\\t(0,240,\\1a&HFF&)}}{FLASH}"
+            )
+    if CHANNEL_TAG:
+        lines.append(f"Dialogue: 1,{ass_time(0.2)},{ass_time(total)},Tag,,0,0,0,,{{\\fad(350,0)}}{esc(CHANNEL_TAG)}")
     return head + "\n".join(lines) + "\n"
 
 
@@ -715,14 +763,18 @@ def render_final(total, out):
     tracks = [p for p in MUSIC_DIR.iterdir() if p.suffix.lower() in exts] if MUSIC_DIR.exists() else []
     music = random.choice(tracks) if tracks else None  # any audio file in assets/ works; one is picked per video
     log(f"background music: {music.name if music else 'none (add a file to the assets folder)'}")
-    cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", "video.mp4", "-i", "voice.mp3"]
+    # soft dark band behind the text lanes, so captions stay readable on any footage
+    run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=1080x1920",
+         "-vf", "format=gbrap,geq=r='0':g='0':b='0':a='255*(0.14+0.30*exp(-pow((Y/H-0.47)/0.2,2)))'",
+         "-frames:v", "1", "scrim.png"], cwd=WORK)
+    cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", "video.mp4", "-i", "voice.mp3", "-i", "scrim.png"]
     tail = "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100[a]"
     if music:
         cmd += ["-stream_loop", "-1", "-i", music]
-        fc = f"[1:a]apad=pad_dur=1[v];[2:a]volume={MUSIC_VOLUME}[m];[v][m]amix=inputs=2:duration=first:normalize=0,{tail}"
+        fc = f"[1:a]apad=pad_dur=1[v];[3:a]volume={MUSIC_VOLUME}[m];[v][m]amix=inputs=2:duration=first:normalize=0,{tail}"
     else:
         fc = f"[1:a]apad=pad_dur=1,{tail}"
-    fc += ";[0:v]ass=captions.ass[vv]"
+    fc += ";[0:v][2:v]overlay=0:0:format=auto[bg];[bg]ass=captions.ass[vv]"
     cmd += [
         "-filter_complex", fc, "-map", "[vv]", "-map", "[a]", "-t", f"{total:.3f}",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
