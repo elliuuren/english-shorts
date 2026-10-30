@@ -28,7 +28,7 @@ jobs:
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
       YT_PRIVACY: private
-      VOICE: en-US-AndrewNeural
+      VOICE: en-US-AndrewMultilingualNeural
       VOICE_RATE: "+6%"
       GREETING: ""
       CTA: "Follow for one tip every day."
