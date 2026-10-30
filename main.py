@@ -34,7 +34,8 @@ MUSIC_DIR = ROOT / "assets"  # optional: drop a royalty-free music.mp3 in here
 # ----------------------------------------------------------------- settings
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 PEXELS_KEY = os.getenv("PEXELS_API_KEY", "")
-VOICE = os.getenv("VOICE", "en-US-AndrewNeural")
+PIXABAY_KEY = os.getenv("PIXABAY_API_KEY", "")
+VOICE =os.getenv("VOICE", "en-US-AndrewNeural")
 VOICE_RATE = os.getenv("VOICE_RATE", "+6%")
 VOICE_PITCH = os.getenv("VOICE_PITCH", "+0Hz")
 YT_PRIVACY = os.getenv("YT_PRIVACY", "private")  # private | unlisted | public
@@ -417,13 +418,46 @@ def pexels_pick(query, used):
         timeout=30,
     )
     r.raise_for_status()
-    vids = [v for v in r.json().get("videos", []) if v["id"] not in used and v.get("duration", 0) >= 4]
+    vids = [v for v in r.json().get("videos", []) if f"pexels:{v['id']}" not in used and v.get("duration", 0) >= 4]
     random.shuffle(vids)
     for v in vids:
         files = [f for f in v.get("video_files", []) if f.get("file_type") == "video/mp4" and (f.get("height") or 0) >= (f.get("width") or 0)]
         files.sort(key=lambda f: abs((f.get("height") or 0) - 1920))
         if files:
-            return v["id"], files[0]["link"]
+            return f"pexels:{v['id']}", files[0]["link"]
+    return None
+
+
+def pixabay_pick(query, used):
+    r = requests.get(
+        "https://pixabay.com/api/videos/",
+        params={"key": PIXABAY_KEY, "q": query[:100], "per_page": 20, "safesearch": "true", "min_height": 720},
+        timeout=30,
+    )
+    r.raise_for_status()
+    hits = [h for h in r.json().get("hits", []) if f"pixabay:{h['id']}" not in used and h.get("duration", 0) >= 4]
+    random.shuffle(hits)
+    for h in hits:
+        sizes = [v for v in (h.get("videos") or {}).values() if v.get("url")]
+        if not sizes:
+            continue
+        fit = [v for v in sizes if (v.get("width") or 0) <= 2000]  # avoid giant 4K files
+        best = max(fit, key=lambda v: v.get("width") or 0) if fit else min(sizes, key=lambda v: v.get("width") or 0)
+        return f"pixabay:{h['id']}", best["url"]
+    return None
+
+
+def stock_pick(query, used):
+    """try each stock-video site you have a key for"""
+    for fn, key in ((pexels_pick, PEXELS_KEY), (pixabay_pick, PIXABAY_KEY)):
+        if not key:
+            continue
+        try:
+            pick = fn(query, used)
+            if pick:
+                return pick
+        except Exception as e:
+            log(f"{fn.__name__} problem for '{query}': {e}")
     return None
 
 
@@ -446,19 +480,20 @@ X264 = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv
 
 def get_footage(query, used, dest):
     """download one stock clip for this query; returns True on success"""
-    if not PEXELS_KEY:
+    if not (PEXELS_KEY or PIXABAY_KEY):
         return False
     words = query.split()
     attempts = [query] + ([" ".join(words[-2:])] if len(words) > 2 else []) + random.sample(FALLBACK_QUERIES, 2)
     for qy in attempts:
+        pick = stock_pick(qy, used)
+        if not pick:
+            continue
+        used.add(pick[0])
         try:
-            pick = pexels_pick(qy, used)
-            if pick:
-                used.add(pick[0])
-                download(pick[1], dest)
-                return True
+            download(pick[1], dest)
+            return True
         except Exception as e:
-            log(f"pexels problem for '{qy}': {e}")
+            log(f"download problem for '{qy}': {e}")
     return False
 
 
