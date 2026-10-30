@@ -575,10 +575,24 @@ FALLBACK_QUERIES = [
     "mountains nature", "ocean waves", "tea cup steam", "rain window", "sunrise hills",
 ]
 GRADIENTS = [("0x0f2027", "0x2c5364"), ("0x41295a", "0x2f0743"), ("0x134e5e", "0x71b280"), ("0x232526", "0x414345"), ("0x1f4037", "0x99f2c8")]
-CLIP_VF = (
-    "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,"
-    f"fps={FPS},eq=brightness=-0.07:saturation=1.08,format=yuv420p"
-)
+MOTION = os.getenv("MOTION", "1") == "1"  # slow camera push, vignette, progress bar, animated cards. 0 = plain
+
+
+def clip_vf(dur, i):
+    """cover-fit to 1080x1920, then a slow, subtle camera move (push-in on even clips, pull-out on odd ones)"""
+    if not MOTION:
+        return (
+            f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps={FPS},"
+            "eq=brightness=-0.07:saturation=1.08,format=yuv420p"
+        )
+    # fit to 1620x2880 (1.5x), then zoompan crops a window that slowly shrinks/grows and outputs a fixed 1080x1920
+    n = max(int(dur * FPS), 1)
+    z = f"1.5+0.105*on/{n}" if i % 2 == 0 else f"1.605-0.105*on/{n}"
+    return (
+        f"fps={FPS},scale=1620:2880:force_original_aspect_ratio=increase,crop=1620:2880,setsar=1,"
+        f"zoompan=z='{z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps={FPS},"
+        "vignette=angle=0.45,eq=brightness=-0.07:saturation=1.08,format=yuv420p"
+    )
 X264 = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-r", str(FPS), "-an"]
 
 
@@ -601,9 +615,9 @@ def get_footage(query, used, dest):
     return False
 
 
-def make_clip(src, dur, out):
+def make_clip(src, dur, out, i=0):
     if src:
-        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-stream_loop", "-1", "-i", src, "-t", f"{dur:.4f}", "-vf", CLIP_VF, *X264, out])
+        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-stream_loop", "-1", "-i", src, "-t", f"{dur:.4f}", "-vf", clip_vf(dur, i), *X264, out])
     else:
         c0, c1 = random.choice(GRADIENTS)
         run([
@@ -627,6 +641,11 @@ HL = r"{\c&H00E5FF&}"  # active word colour (yellow)
 RS = r"{\c&HFFFFFF&}"
 POP = r"{\fscx108\fscy108\t(0,90,\fscx100\fscy100)}"
 CARD_COLORS = {"wrong": r"{\c&H4B4BFF&\s1}", "right": r"{\c&H78DC50&}", "neutral": r"{\c&HFFFFFF&}"}
+CHANNEL_TAG = os.getenv("CHANNEL_TAG", "ENGLISH TIP").strip()  # small label at the top; "" = none
+# card entrance: starts small, overshoots, settles (a small tilt-shake is added for 'wrong' cards)
+CARD_IN = r"{\fscx70\fscy70\t(0,150,\fscx112\fscy112)\t(150,260,\fscx100\fscy100)}"
+CARD_SHAKE = r"{\t(260,320,\frz2.5)\t(320,380,\frz-2.5)\t(380,440,\frz0)}"
+BAR = r"m 0 0 l 1080 0 1080 8 0 8"
 
 
 def chunk_tokens(tokens, size=3):
@@ -653,6 +672,7 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Cap,{FONT},88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,2,2,70,70,560,1
 Style: Card,{FONT},118,&H00FFFFFF,&H00FFFFFF,&H99000000,&H99000000,-1,0,0,0,100,100,0,0,3,26,0,8,80,80,330,1
+Style: Tag,{FONT},38,&H00FFFFFF,&H00FFFFFF,&H80000000,&H80000000,-1,0,0,0,100,100,6,0,3,16,0,8,80,80,150,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -676,8 +696,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{text}")
     for (a, b), s in zip(seg_bounds, segs):
         if s["card"]:
-            body = f"{{\\fad(120,120)}}{CARD_COLORS[s['card_kind']]}{esc(s['card'])}"
+            motion = (CARD_IN + (CARD_SHAKE if s["card_kind"] == "wrong" else "")) if MOTION else ""
+            body = f"{{\\fad(120,120)}}{motion}{CARD_COLORS[s['card_kind']]}{esc(s['card'])}"
             lines.append(f"Dialogue: 1,{ass_time(a + 0.1)},{ass_time(b)},Card,,0,0,0,,{body}")
+    if MOTION:
+        ms = int(total * 1000)
+        d = f"{{\\an7\\pos(0,70)\\p1\\bord0\\shad0"
+        lines.append(f"Dialogue: 0,{ass_time(0)},{ass_time(total)},Cap,,0,0,0,,{d}\\1c&HFFFFFF&\\1a&HC0&}}{BAR}")
+        lines.append(f"Dialogue: 0,{ass_time(0)},{ass_time(total)},Cap,,0,0,0,,{d}\\1c&H00E5FF&\\fscx0\\t(0,{ms},\\fscx100)}}{BAR}")
+        if CHANNEL_TAG:
+            lines.append(f"Dialogue: 0,{ass_time(0.2)},{ass_time(total)},Tag,,0,0,0,,{{\\fad(350,0)}}{esc(CHANNEL_TAG)}")
     return head + "\n".join(lines) + "\n"
 
 
@@ -795,7 +823,7 @@ def main():
         src = WORK / f"raw_{i}.mp4"
         got = False if args.offline_test else get_footage(s["visual"], used, src)
         clip = WORK / f"clip_{i:02d}.mp4"
-        make_clip(src if got else None, max(b - a, 0.5), clip)
+        make_clip(src if got else None, max(b - a, 0.5), clip, i)
         clip_files.append(clip.name)
         log(f"clip {i + 1}/{len(segs)}: {'stock footage' if got else 'gradient'} ({b - a:.1f}s) - {s['visual']}")
     (WORK / "concat.txt").write_text("".join(f"file '{n}'\n" for n in clip_files))
