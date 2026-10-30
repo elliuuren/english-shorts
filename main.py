@@ -209,10 +209,14 @@ def gemini_models():
     return _models
 
 
+_dead_models = set()  # models that timed out or errored this run: skipped from then on
+
+
 def gemini_json(prompt, temperature=1.0):
     last = None
-    for model in gemini_models():
-        for attempt in range(3):
+    models = [m for m in gemini_models() if m not in _dead_models] or gemini_models()
+    for model in models:
+        for attempt in range(2):
             try:
                 r = requests.post(
                     f"{GEMINI_BASE}/models/{model}:generateContent",
@@ -221,14 +225,15 @@ def gemini_json(prompt, temperature=1.0):
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
                     },
-                    timeout=120,
+                    timeout=(10, 50),
                 )
                 if r.status_code in (429, 500, 503):
                     last = f"{model}: HTTP {r.status_code}"
-                    time.sleep(15 * (attempt + 1))
+                    time.sleep(10 * (attempt + 1))
                     continue
                 if r.status_code in (400, 403, 404):
                     last = f"{model}: HTTP {r.status_code} {r.text[:200]}"
+                    _dead_models.add(model)
                     break  # try the next model
                 r.raise_for_status()
                 parts = r.json()["candidates"][0]["content"]["parts"]
@@ -237,13 +242,18 @@ def gemini_json(prompt, temperature=1.0):
                 if isinstance(data, list):
                     data = data[0]
                 return data
+            except requests.exceptions.RequestException as e:  # timeout or network trouble: switch model right away
+                last = f"{model}: {type(e).__name__}"
+                log(f"{model} too slow or unreachable ({type(e).__name__}); switching model")
+                _dead_models.add(model)
+                break
             except (KeyError, IndexError, json.JSONDecodeError) as e:
                 last = f"{model}: bad response ({e})"
                 time.sleep(3)
     raise RuntimeError(f"Gemini failed: {last}")
 
 
-def build_prompt(category, hook_style, recent):
+def build_prompt(category, hook_style, recent, notes=""):
     recent_txt = "\n".join(f"- {t}" for t in recent[-60:]) or "- (none yet)"
     greet = (
         f'Begin the very first sentence with exactly: "{GREETING}" and then go straight into the hook.'
@@ -285,7 +295,7 @@ HOOK STYLE TO ADAPT (do not copy it word for word): {hook_style}
 
 Never repeat or closely resemble these earlier topics:
 {recent_txt}
-
+{notes}
 HOW IT MUST SOUND
 Write the way a warm, funny friend explains something over coffee, not the way a teacher or textbook talks. Use contractions (you're, it's, don't). Mix very short sentences with slightly longer ones. It's fine to start with "And", "But" or "Look,". Plain everyday words only. One idea per sentence. Imagine reading every line out loud; if it sounds written instead of spoken, rewrite it.
 Never use: "dive in", "delve", "game-changer", "unlock", "elevate", "journey", "in today's video", "welcome back", "let's get started", "buckle up". No emojis, hashtags, stage directions or sound effects inside spoken lines. Write numbers as words.
@@ -381,12 +391,21 @@ def make_lesson(history):
     hook_style = random.choice(HOOK_STYLES)
     recent_topics = [h.get("topic", "") for h in history]
     log(f"lesson type: {category}\nhook style: {hook_style}")
-    last_err = None
-    for attempt in range(1, 6):
+    last_err, notes = None, ""
+    for attempt in range(1, 9):
+        if time.time() - T0 > 600:  # never let one run drag on
+            break
+        if attempt in (4, 7):  # still failing: try a different lesson type
+            category = random.choice(CATEGORIES)
+            log(f"switching lesson type to: {category}")
         try:
-            lesson = validate(gemini_json(build_prompt(category, hook_style, recent_topics)))
+            lesson = validate(gemini_json(build_prompt(category, hook_style, recent_topics, notes)))
             ok, issues = verify_lesson(lesson)
             if not ok:
+                notes = (
+                    "\nA strict teacher REJECTED your previous attempt for this reason, so avoid it: "
+                    f"{issues[:300]}\nOnly teach points that are 100% correct. Never label a natural, correct phrase as wrong.\n"
+                )
                 raise ValueError(f"teacher check failed: {issues}")
             lesson["category"] = category
             return lesson
