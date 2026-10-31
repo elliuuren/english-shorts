@@ -12,6 +12,7 @@ Run:
 """
 import argparse
 import asyncio
+import base64
 import json
 import os
 import random
@@ -57,6 +58,59 @@ def pick_font():
 
 
 FONT = pick_font()
+CHANNEL_NAME = os.getenv("CHANNEL_NAME", "Elliuuren English").strip()
+CREATOR_NAME = os.getenv("CREATOR_NAME", "Elliuuren").strip()
+# Subtitles: elegant serif (Playfair Display). Titles/cards: bold condensed display (Anton).
+# Both are downloaded at run time; if that fails the run silently falls back to the font picked above.
+CAP_FONT, CAP_BOLD, CAP_SIZE = FONT, "extrabold" not in FONT.lower(), 92
+TITLE_FONT, TITLE_BOLD, TITLE_SCALE = FONT, "extrabold" not in FONT.lower(), 1.0
+FONTS_DIR = OUT / "fonts"
+FONT_URLS = ("https://raw.githubusercontent.com/google/fonts/main/", "https://github.com/google/fonts/raw/main/")
+FONT_FILES = {
+    "caption": ["ofl/playfairdisplay/static/PlayfairDisplay-Bold.ttf", "ofl/playfairdisplay/PlayfairDisplay-Bold.ttf",
+                "ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf"],
+    "title": ["ofl/anton/Anton-Regular.ttf"],
+}
+
+
+def _fetch_font(paths):
+    FONTS_DIR.mkdir(parents=True, exist_ok=True)
+    for p in paths:
+        for base in FONT_URLS:
+            try:
+                r = requests.get(base + p, timeout=30)
+                if r.status_code == 200 and r.content[:4] in (b"\x00\x01\x00\x00", b"OTTO", b"true"):
+                    dest = FONTS_DIR / Path(p.replace("%5B", "[").replace("%5D", "]")).name
+                    dest.write_bytes(r.content)
+                    return dest
+            except Exception:
+                pass
+    return None
+
+
+def _family(path):
+    try:
+        out = subprocess.run(["fc-scan", "--format", "%{family[0]}", str(path)], capture_output=True, text=True).stdout.strip()
+        return out or None
+    except Exception:
+        return None
+
+
+def setup_fonts():
+    global CAP_FONT, CAP_BOLD, CAP_SIZE, TITLE_FONT, TITLE_BOLD, TITLE_SCALE
+    if os.getenv("FONT_DOWNLOAD", "1") != "1":
+        return
+    f = _fetch_font(FONT_FILES["caption"])
+    fam = f and _family(f)
+    if fam:
+        CAP_FONT, CAP_BOLD, CAP_SIZE = fam, True, 90
+    f = _fetch_font(FONT_FILES["title"])
+    fam2 = f and _family(f)
+    if fam2:
+        TITLE_FONT, TITLE_BOLD, TITLE_SCALE = fam2, False, 1.24
+    print(f"fonts: subtitles={CAP_FONT!r}, titles={TITLE_FONT!r}" + ("" if fam and fam2 else "  (download failed for one: using fallback)"), flush=True)
+
+
 NO_PEOPLE = os.getenv("NO_PEOPLE", "1") == "1"  # 1 = no humans at all in the footage; 0 = men allowed
 MUSIC_VOLUME = os.getenv("MUSIC_VOLUME", "0.07")  # background music loudness (0.03 quiet ... 0.15 loud)
 FPS = 30
@@ -209,7 +263,7 @@ def gemini_models():
                 continue
             if "flash" not in name:
                 continue
-            if re.search(r"lite|image|tts|live|audio|thinking|exp|preview|vision|robotics|computer|learnlm|gemma", name):
+            if re.search(r"image|tts|live|audio|thinking|exp|preview|vision|robotics|computer|learnlm|gemma", name):
                 continue
             found.append(name)
     except Exception as e:
@@ -220,18 +274,28 @@ def gemini_models():
         return float(m.group(1)) if m else 0.0
 
     found.sort(key=ver, reverse=True)
-    ordered = [n for n in found if n.endswith("latest")] + [n for n in found if not n.endswith("latest")]
+    full = [n for n in found if "lite" not in n]
+    lite = [n for n in found if "lite" in n]  # smaller models: last resort when the others are out of free quota
+    ordered = [n for n in full if n.endswith("latest")] + [n for n in full if not n.endswith("latest")] + lite
     _models = ordered or ["gemini-2.5-flash", "gemini-2.0-flash"]
     log("Gemini models to try:", _models[:3])
     return _models
 
 
-_dead_models = set()  # models that timed out or errored this run: skipped from then on
+_dead_models = {}  # model -> time it failed; skipped for 70 s (per-minute limits clear after a minute)
 
 
-def gemini_json(prompt, temperature=1.0):
+def _alive(m):
+    return time.time() - _dead_models.get(m, 0) > 70
+
+
+def gemini_json(prompt, temperature=1.0, images=None):
     last = None
-    models = [m for m in gemini_models() if m not in _dead_models] or gemini_models()
+    parts_in = [{"text": prompt}] + [{"inline_data": {"mime_type": "image/jpeg", "data": b}} for b in (images or [])]
+    models = [m for m in gemini_models() if _alive(m)]
+    if not models:
+        time.sleep(15)  # everything is rate-limited right now: wait a bit, then try the full list once
+        models = gemini_models()
     for model in models:
         for attempt in range(2):
             try:
@@ -239,18 +303,21 @@ def gemini_json(prompt, temperature=1.0):
                     f"{GEMINI_BASE}/models/{model}:generateContent",
                     params={"key": GEMINI_KEY},
                     json={
-                        "contents": [{"parts": [{"text": prompt}]}],
+                        "contents": [{"parts": parts_in}],
                         "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
                     },
                     timeout=(10, 50),
                 )
                 if r.status_code in (429, 500, 503):
                     last = f"{model}: HTTP {r.status_code}"
-                    time.sleep(10 * (attempt + 1))
-                    continue
+                    if attempt == 0:
+                        time.sleep(8)
+                        continue
+                    _dead_models[model] = time.time()
+                    break
                 if r.status_code in (400, 403, 404):
                     last = f"{model}: HTTP {r.status_code} {r.text[:200]}"
-                    _dead_models.add(model)
+                    _dead_models[model] = time.time()
                     break  # try the next model
                 r.raise_for_status()
                 parts = r.json()["candidates"][0]["content"]["parts"]
@@ -262,7 +329,7 @@ def gemini_json(prompt, temperature=1.0):
             except requests.exceptions.RequestException as e:  # timeout or network trouble: switch model right away
                 last = f"{model}: {type(e).__name__}"
                 log(f"{model} too slow or unreachable ({type(e).__name__}); switching model")
-                _dead_models.add(model)
+                _dead_models[model] = time.time()
                 break
             except (KeyError, IndexError, json.JSONDecodeError) as e:
                 last = f"{model}: bad response ({e})"
@@ -271,7 +338,7 @@ def gemini_json(prompt, temperature=1.0):
 
 
 def build_prompt(category, hook_style, recent, notes=""):
-    recent_txt = "\n".join(f"- {t}" for t in recent[-60:]) or "- (none yet)"
+    recent_txt = "\n".join(f"- {t}" for t in recent[-120:]) or "- (none yet)"
     greet = (
         f'Begin the very first sentence with exactly: "{GREETING}" and then go straight into the hook.'
         if GREETING
@@ -528,7 +595,7 @@ def align(tokens, wb, total, sents=None):
 
 
 # --------------------------------------------------------------- footage
-def pexels_pick(query, used):
+def pexels_list(query, used):
     r = requests.get(
         "https://api.pexels.com/videos/search",
         headers={"Authorization": PEXELS_KEY},
@@ -538,15 +605,16 @@ def pexels_pick(query, used):
     r.raise_for_status()
     vids = [v for v in r.json().get("videos", []) if f"pexels:{v['id']}" not in used and v.get("duration", 0) >= 4 and is_clean(v.get("url", ""))]
     random.shuffle(vids)
+    out = []
     for v in vids:
         files = [f for f in v.get("video_files", []) if f.get("file_type") == "video/mp4" and (f.get("height") or 0) >= (f.get("width") or 0)]
         files.sort(key=lambda f: abs((f.get("height") or 0) - 1920))
         if files:
-            return f"pexels:{v['id']}", files[0]["link"]
-    return None
+            out.append((f"pexels:{v['id']}", files[0]["link"]))
+    return out
 
 
-def pixabay_pick(query, used):
+def pixabay_list(query, used):
     r = requests.get(
         "https://pixabay.com/api/videos/",
         params={"key": PIXABAY_KEY, "q": query[:100], "per_page": 20, "safesearch": "true", "min_height": 720, "video_type": "film"},
@@ -555,28 +623,75 @@ def pixabay_pick(query, used):
     r.raise_for_status()
     hits = [h for h in r.json().get("hits", []) if f"pixabay:{h['id']}" not in used and h.get("duration", 0) >= 4 and is_clean(h.get("tags", ""))]
     random.shuffle(hits)
+    out = []
     for h in hits:
         sizes = [v for v in (h.get("videos") or {}).values() if v.get("url")]
         if not sizes:
             continue
         fit = [v for v in sizes if (v.get("width") or 0) <= 2000]  # avoid giant 4K files
         best = max(fit, key=lambda v: v.get("width") or 0) if fit else min(sizes, key=lambda v: v.get("width") or 0)
-        return f"pixabay:{h['id']}", best["url"]
-    return None
+        out.append((f"pixabay:{h['id']}", best["url"]))
+    return out
 
 
-def stock_pick(query, used):
-    """try each stock-video site you have a key for"""
-    for fn, key in ((pexels_pick, PEXELS_KEY), (pixabay_pick, PIXABAY_KEY)):
+def stock_candidates(query, used):
+    """clips from every stock site you have a key for (tag-filtered; the real check happens in vet_clip)"""
+    out = []
+    for fn, key in ((pexels_list, PEXELS_KEY), (pixabay_list, PIXABAY_KEY)):
         if not key:
             continue
         try:
-            pick = fn(query, used)
-            if pick:
-                return pick
+            out += fn(query, used)
         except Exception as e:
             log(f"{fn.__name__} problem for '{query}': {e}")
-    return None
+    return out
+
+
+VET = os.getenv("VET_FOOTAGE", "1") == "1"  # 1 = Gemini looks at the clip's frames before it is used
+
+
+def vet_prompt():
+    people = (
+        "any person or part of a person (face, hands, fingers, arms, legs, silhouette, crowd, statue or drawing of a person)"
+        if NO_PEOPLE else "any woman or girl, or any person who is partly undressed (adult men dressed normally are fine)"
+    )
+    return (
+        "You are a strict reviewer for a modest, family-friendly educational channel with a Muslim audience. "
+        "You are shown 3 frames from ONE stock video clip. Answer ok=true ONLY if all 3 frames are clearly clean.\n"
+        f"Reject (ok=false) if ANY frame shows: {people}; alcohol, pork, smoking, gambling, nightlife, romance or revealing clothing; "
+        "worship or religious rituals or symbols of any religion, idols; fire, explosions, weapons, war, violence or disasters; "
+        "large readable text, logos or brand names; anything dark, disturbing or creepy; a green screen or flat placeholder graphic.\n"
+        "Calm nature, sky, sea, rain, buildings and cityscapes without people, books, desks, keyboards, cups, plants and similar objects are fine.\n"
+        'Reply as JSON: {"ok": true or false, "reason": "short reason"}'
+    )
+
+
+_vet_errors = 0  # consecutive checks that could not run (quota, network): after 4 we stop using stock footage
+
+
+def vet_clip(path, tag):
+    """True only if Gemini says the clip is clean. Fails closed: if the check can't run, the clip is not used."""
+    global _vet_errors
+    if not VET:
+        return True
+    try:
+        d = probe_duration(path)
+        imgs = []
+        for k, frac in enumerate((0.15, 0.5, 0.85)):
+            jpg = WORK / f"vet_{tag}_{k}.jpg"
+            run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{d * frac:.2f}", "-i", path,
+                 "-frames:v", "1", "-vf", "scale=384:-2", "-q:v", "5", jpg])
+            imgs.append(base64.b64encode(jpg.read_bytes()).decode())
+        res = gemini_json(vet_prompt(), 0.0, images=imgs)
+        _vet_errors = 0
+        ok = res.get("ok") is True
+        if not ok:
+            log(f"  footage check said no: {str(res.get('reason', ''))[:110]}")
+        return ok
+    except Exception as e:
+        _vet_errors += 1
+        log(f"  footage check could not run ({str(e)[:100]}); not using this clip")
+        return False
 
 
 def download(url, dest):
@@ -613,22 +728,29 @@ def clip_vf(dur, i):
 X264 = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-r", str(FPS), "-an"]
 
 
-def get_footage(query, used, dest):
-    """download one stock clip for this query; returns True on success"""
+def get_footage(query, used, dest, tag="x"):
+    """find one clean stock clip for this query (checked frame by frame); returns True on success"""
     if not (PEXELS_KEY or PIXABAY_KEY):
+        return False
+    if VET and _vet_errors >= 4:
+        log("  footage check keeps failing: using a calm gradient for this scene")
         return False
     words = query.split()
     attempts = [query] + ([" ".join(words[-2:])] if len(words) > 2 else []) + random.sample(FALLBACK_QUERIES, 2)
+    checked = 0
     for qy in attempts:
-        pick = stock_pick(qy, used)
-        if not pick:
-            continue
-        used.add(pick[0])
-        try:
-            download(pick[1], dest)
-            return True
-        except Exception as e:
-            log(f"download problem for '{qy}': {e}")
+        for cid, url in stock_candidates(qy, used)[:4]:
+            if checked >= 6 or (VET and _vet_errors >= 4):  # give up on this scene: a calm gradient beats a risky clip
+                return False
+            used.add(cid)
+            try:
+                download(url, dest)
+            except Exception as e:
+                log(f"download problem for '{qy}': {e}")
+                continue
+            checked += 1
+            if vet_clip(dest, tag):
+                return True
     return False
 
 
@@ -660,19 +782,23 @@ WHITE = r"\c&HFFFFFF&"
 # captions are anchored by their TOP edge at CAP_Y. The gap between them means they can never overlap.
 CARD_Y = 860
 CAP_Y = 960
-CHANNEL_TAG = os.getenv("CHANNEL_TAG", "").strip()  # optional small label at the very top; "" = none
+CHANNEL_TAG = os.getenv("CHANNEL_TAG", CHANNEL_NAME.upper()).strip()  # small watermark at the top; "" = none
 # card panel colours (BGR): panel, text
 CARD_LOOK = {
     "wrong": (r"\3c&H2626DC&", r"\c&HFFFFFF&\s1"),   # red panel, white struck-through text
     "right": (r"\3c&H3D8015&", r"\c&HFFFFFF&"),      # green panel, white text
     "neutral": (r"\3c&HFFFFFF&", r"\c&H271811&"),    # white panel, dark text
+    "brand": (r"\3c&H00E5FF&", r"\c&H271811&"),      # yellow panel, dark text (closing channel name)
 }
 FLASH = r"m 0 0 l 1080 0 1080 1920 0 1920"
 
 
-def chunk_tokens(tokens, size=3):
+def chunk_tokens(tokens, size=3, max_chars=24):
     chunks, cur = [], []
     for i, t in enumerate(tokens):
+        if cur and sum(len(tokens[j]) + 1 for j in cur) + len(t) > max_chars:  # keep lines short and steady
+            chunks.append(cur)
+            cur = []
         cur.append(i)
         if len(cur) >= size or re.search(r"[.!?,;:]\"?$", t):
             chunks.append(cur)
@@ -686,7 +812,7 @@ def card_events(s, a, b):
     """one key-phrase card: solid panel, entrance depends on its meaning"""
     kind = s["card_kind"]
     n = len(s["card"])
-    size = 100 if n <= 14 else 88 if n <= 22 else 76
+    size = int((100 if n <= 14 else 88 if n <= 22 else 76) * TITLE_SCALE)
     panel, textcol = CARD_LOOK[kind]
     base = f"\\an2\\fs{size}\\bord30\\shad0\\4a&HFF&{panel}{textcol}"
     t0 = a + 0.1
@@ -706,7 +832,8 @@ def card_events(s, a, b):
 
 
 def build_ass(tokens, times, segs, seg_bounds, total):
-    bold = 0 if "extrabold" in FONT.lower() else -1
+    capb = -1 if CAP_BOLD else 0
+    titleb = -1 if TITLE_BOLD else 0
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -716,9 +843,9 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,{FONT},92,&H00FFFFFF,&H00FFFFFF,&H00201008,&H80000000,{bold},0,0,0,100,100,0,0,1,7,3,8,90,90,{CAP_Y},1
-Style: Card,{FONT},100,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H00000000,{bold},0,0,0,100,100,0,0,3,30,0,2,90,90,0,1
-Style: Tag,{FONT},36,&H00FFFFFF,&H00FFFFFF,&H80000000,&H80000000,{bold},0,0,0,100,100,6,0,3,14,0,8,80,80,170,1
+Style: Cap,{CAP_FONT},{CAP_SIZE},&H00FFFFFF,&H00FFFFFF,&H00201008,&H80000000,{capb},0,0,0,100,100,0,0,1,7,3,8,90,90,{CAP_Y},1
+Style: Card,{TITLE_FONT},100,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H00000000,{titleb},0,0,0,100,100,1,0,3,30,0,2,90,90,0,1
+Style: Tag,{CAP_FONT},32,&H00FFFFFF,&H00FFFFFF,&H00201008,&H80000000,{capb},0,0,0,100,100,8,0,1,2,2,8,80,80,175,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -737,15 +864,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             parts = []
             for j in chunk:
                 w = esc(tokens[j]).replace('"', "").rstrip(".,;:")
-                if j == idx:  # the word being spoken: accent colour + a quick, small pop
-                    pop = r"\fscx114\fscy114\t(0,90,\fscx100\fscy100)" if MOTION else ""
-                    parts.append(f"{{{HL}{pop}}}{w}{{{WHITE}\\fscx100\\fscy100}}")
-                else:
-                    parts.append(w)
-            lines.append(f"Dialogue: 1,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{' '.join(parts)}")
+                parts.append(f"{{{HL}}}{w}{{{WHITE}}}" if j == idx else w)  # spoken word in accent colour; size never changes
+            fade = r"{\fad(80,0)}" if (k == 0 and MOTION) else ""
+            lines.append(f"Dialogue: 1,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{fade}{' '.join(parts)}")
     for (a, b), s in zip(seg_bounds, segs):
         if s["card"]:
             lines.append(card_events(s, a, b))
+    if CHANNEL_NAME and segs and not segs[-1]["card"]:  # closing brand card over the last line
+        a, b = seg_bounds[-1]
+        lines.append(card_events({"card": CHANNEL_NAME.upper(), "card_kind": "brand"}, a, b))
     if MOTION:  # soft dip at every cut so scene changes feel smooth, not abrupt
         for a, _ in seg_bounds[1:]:
             lines.append(
@@ -753,7 +880,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 f"{{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c&H000000&\\1a&H60&\\t(0,240,\\1a&HFF&)}}{FLASH}"
             )
     if CHANNEL_TAG:
-        lines.append(f"Dialogue: 1,{ass_time(0.2)},{ass_time(total)},Tag,,0,0,0,,{{\\fad(350,0)}}{esc(CHANNEL_TAG)}")
+        brand_card = bool(CHANNEL_NAME and segs and not segs[-1]["card"])
+        tag_end = seg_bounds[-1][0] if brand_card else total  # the closing card shows the name, so the watermark steps aside
+        lines.append(f"Dialogue: 1,{ass_time(0.3)},{ass_time(tag_end)},Tag,,0,0,0,,{{\\fad(500,0)\\1a&H55&}}{esc(CHANNEL_TAG)}")
     return head + "\n".join(lines) + "\n"
 
 
@@ -774,7 +903,8 @@ def render_final(total, out):
         fc = f"[1:a]apad=pad_dur=1[v];[3:a]volume={MUSIC_VOLUME}[m];[v][m]amix=inputs=2:duration=first:normalize=0,{tail}"
     else:
         fc = f"[1:a]apad=pad_dur=1,{tail}"
-    fc += ";[0:v][2:v]overlay=0:0:format=auto[bg];[bg]ass=captions.ass[vv]"
+    fd = f":fontsdir='{FONTS_DIR}'" if FONTS_DIR.exists() and any(FONTS_DIR.iterdir()) else ""
+    fc += f";[0:v][2:v]overlay=0:0:format=auto[bg];[bg]ass=captions.ass{fd}[vv]"
     cmd += [
         "-filter_complex", fc, "-map", "[vv]", "-map", "[a]", "-t", f"{total:.3f}",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
@@ -799,12 +929,14 @@ def upload_youtube(path, lesson):
         scopes=["https://www.googleapis.com/auth/youtube.upload"],
     )
     yt = build("youtube", "v3", credentials=creds, cache_discovery=False)
-    tags_line = " ".join(lesson["hashtags"])
+    brand_tag = "#" + re.sub(r"\W", "", CHANNEL_NAME)
+    tags_line = " ".join(lesson["hashtags"] + [brand_tag])
+    about = f"Hi, I'm {CREATOR_NAME}. On {CHANNEL_NAME} I share one short English tip at a time. Follow for more."
     body = {
         "snippet": {
             "title": lesson["title"],
-            "description": f"{lesson['description']}\n\n{tags_line}",
-            "tags": [t.lstrip("#") for t in lesson["hashtags"]],
+            "description": f"{lesson['description']}\n\n{about}\n\n{tags_line}",
+            "tags": [t.lstrip("#") for t in lesson["hashtags"]] + [CHANNEL_NAME],
             "categoryId": "27",  # Education
         },
         "status": {"privacyStatus": YT_PRIVACY, "selfDeclaredMadeForKids": False},
@@ -842,6 +974,7 @@ def main():
     if WORK.exists():
         shutil.rmtree(WORK)
     WORK.mkdir(parents=True)
+    setup_fonts()
 
     history = load_history()
     lesson = validate(SAMPLE_LESSON) if args.offline_test else make_lesson(history)
@@ -873,7 +1006,7 @@ def main():
     used, clip_files = set(), []
     for i, (s, (a, b)) in enumerate(zip(segs, bounds)):
         src = WORK / f"raw_{i}.mp4"
-        got = False if args.offline_test else get_footage(s["visual"], used, src)
+        got = False if args.offline_test else get_footage(s["visual"], used, src, i)
         clip = WORK / f"clip_{i:02d}.mp4"
         make_clip(src if got else None, max(b - a, 0.5), clip, i)
         clip_files.append(clip.name)
