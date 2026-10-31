@@ -41,7 +41,15 @@ VOICE_RATE = os.getenv("VOICE_RATE", "+3%")
 VOICE_PITCH = os.getenv("VOICE_PITCH", "+0Hz")
 YT_PRIVACY = os.getenv("YT_PRIVACY", "private")  # private | unlisted | public
 GREETING = os.getenv("GREETING", "").strip()  # optional spoken greeting before the hook
-CTA = os.getenv("CTA", "Follow for one tip every day.").strip()  # "" = no spoken CTA
+# The closing line. It says the creator's name out loud (see SPOKEN_NAME) instead of showing it on screen.
+CTA = os.getenv("CLOSING_LINE", f"I'm {os.getenv('CREATOR_NAME', 'Elliuuren')}. Follow for one English tip every day.").strip()  # "" = none
+# How the voice should say the name. A respelling written as ONE word works best, e.g. "Elliooren".
+SPOKEN_NAME = os.getenv("SPOKEN_NAME", "Elliooren").strip()
+# Voice: "kokoro" = a newer, more natural open-source voice that runs on the GitHub server (male voices: am_michael,
+# am_adam, am_fenrir, am_puck, bm_george, bm_lewis). "edge" = Microsoft's voice. Kokoro falls back to edge by itself.
+VOICE_ENGINE = os.getenv("VOICE_ENGINE", "kokoro").strip().lower()
+KOKORO_VOICE = os.getenv("KOKORO_VOICE", "am_michael").strip()
+KOKORO_SPEED = float(os.getenv("KOKORO_SPEED", "1.0"))
 
 
 def pick_font():
@@ -67,8 +75,8 @@ TITLE_FONT, TITLE_BOLD, TITLE_SCALE = FONT, "extrabold" not in FONT.lower(), 1.0
 FONTS_DIR = OUT / "fonts"
 FONT_URLS = ("https://raw.githubusercontent.com/google/fonts/main/", "https://github.com/google/fonts/raw/main/")
 FONT_FILES = {
-    "caption": ["ofl/playfairdisplay/static/PlayfairDisplay-Bold.ttf", "ofl/playfairdisplay/PlayfairDisplay-Bold.ttf",
-                "ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf"],
+    "caption": ["ofl/playfairdisplay/static/PlayfairDisplay-SemiBold.ttf", "ofl/playfairdisplay/static/PlayfairDisplay-Bold.ttf",
+                "ofl/playfairdisplay/PlayfairDisplay-Bold.ttf", "ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf"],
     "title": ["ofl/anton/Anton-Regular.ttf"],
 }
 
@@ -98,17 +106,38 @@ def _family(path):
 
 def setup_fonts():
     global CAP_FONT, CAP_BOLD, CAP_SIZE, TITLE_FONT, TITLE_BOLD, TITLE_SCALE
-    if os.getenv("FONT_DOWNLOAD", "1") != "1":
-        return
-    f = _fetch_font(FONT_FILES["caption"])
-    fam = f and _family(f)
-    if fam:
-        CAP_FONT, CAP_BOLD, CAP_SIZE = fam, True, 90
-    f = _fetch_font(FONT_FILES["title"])
-    fam2 = f and _family(f)
-    if fam2:
-        TITLE_FONT, TITLE_BOLD, TITLE_SCALE = fam2, False, 1.24
-    print(f"fonts: subtitles={CAP_FONT!r}, titles={TITLE_FONT!r}" + ("" if fam and fam2 else "  (download failed for one: using fallback)"), flush=True)
+    FONTS_DIR.mkdir(parents=True, exist_ok=True)
+    notes = []
+    # 1) fonts you put in the repo's "fonts" folder win: fonts/subtitle.ttf|otf and fonts/title.ttf|otf
+    mine = ROOT / "fonts"
+    for role in ("subtitle", "title"):
+        found = next((p for p in sorted(mine.glob(f"{role}.*")) if p.suffix.lower() in (".ttf", ".otf")), None) if mine.exists() else None
+        if not found:
+            continue
+        dest = FONTS_DIR / f"your_{role}{found.suffix.lower()}"
+        shutil.copy(found, dest)
+        fam = _family(dest)
+        if fam and role == "subtitle":
+            CAP_FONT, CAP_BOLD, CAP_SIZE = fam, False, 88
+            notes.append(f"your subtitle font ({fam})")
+        elif fam:
+            TITLE_FONT, TITLE_BOLD, TITLE_SCALE = fam, False, 1.0
+            notes.append(f"your title font ({fam})")
+    # 2) otherwise download the free defaults
+    if os.getenv("FONT_DOWNLOAD", "1") == "1":
+        if not any("subtitle" in n for n in notes):
+            f = _fetch_font(FONT_FILES["caption"])
+            fam = f and _family(f)
+            if fam:
+                CAP_FONT, CAP_BOLD, CAP_SIZE = fam, True, 88
+        if not any("title" in n for n in notes):
+            f = _fetch_font(FONT_FILES["title"])
+            fam2 = f and _family(f)
+            if fam2:
+                TITLE_FONT, TITLE_BOLD, TITLE_SCALE = fam2, False, 1.24
+    if CAP_FONT == FONT:
+        CAP_SIZE = 80  # the fallback font is wider
+    print(f"fonts: subtitles={CAP_FONT!r}, titles={TITLE_FONT!r}" + (f"  [{', '.join(notes)}]" if notes else ""), flush=True)
 
 
 NO_PEOPLE = os.getenv("NO_PEOPLE", "1") == "1"  # 1 = no humans at all in the footage; 0 = men allowed
@@ -344,11 +373,7 @@ def build_prompt(category, hook_style, recent, notes=""):
         if GREETING
         else "No greeting, no intro, no channel name. The very first words ARE the hook."
     )
-    cta = (
-        f'The last segment is only this short call to action: "{CTA}"'
-        if CTA
-        else "End on the comment question. No call to action."
-    )
+    cta = "End on the comment question. Do NOT add a call to action or a sign-off: the closing line is added automatically afterwards."
     if NO_PEOPLE:
         visual_rule = (
             'VISUALS: for each segment give "visual", a 2 to 4 word search phrase for stock video that a camera could really film. '
@@ -469,6 +494,18 @@ def verify_lesson(lesson):
         return True, ""
 
 
+def ensure_cta(lesson):
+    """the last line of every video is exactly the closing line (it says the creator's name out loud)"""
+    if not CTA:
+        return lesson
+    segs = lesson["segments"]
+    if re.search(r"\bfollow\b", segs[-1]["say"], re.I):
+        segs[-1] = {**segs[-1], "say": CTA, "card": ""}
+    else:
+        segs.append({"say": CTA, "visual": random.choice(FALLBACK_QUERIES), "card": "", "card_kind": "neutral"})
+    return lesson
+
+
 def make_lesson(history):
     recent_cats = [h.get("category") for h in history[-4:]]
     category = random.choice([c for c in CATEGORIES if c not in recent_cats] or CATEGORIES)
@@ -544,6 +581,83 @@ def tts(text, out_path):
                 log(f"voice attempt failed ({voice}): {e}")
                 time.sleep(3 * (attempt + 1))
     raise RuntimeError(f"text-to-speech failed: {last}")
+
+
+# ---- Kokoro: open-source neural voice (kokoro-onnx). Needs no key; ~310 MB model downloaded on each run.
+KOKORO_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
+KOKORO_DIR = OUT / "kokoro"
+_kokoro = None
+
+
+def _kokoro_engine():
+    global _kokoro
+    if _kokoro:
+        return _kokoro
+    try:
+        from kokoro_onnx import Kokoro
+    except ImportError:
+        log("installing kokoro-onnx ...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "kokoro-onnx"], check=True, timeout=900)
+        from kokoro_onnx import Kokoro
+    KOKORO_DIR.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for name in ("kokoro-v1.0.onnx", "voices-v1.0.bin"):
+        p = KOKORO_DIR / name
+        if not p.exists() or p.stat().st_size < 1_000_000:
+            log(f"downloading voice file {name} ...")
+            download(f"{KOKORO_URL}/{name}", p)
+        paths.append(str(p))
+    _kokoro = Kokoro(*paths)
+    return _kokoro
+
+
+def split_sentences(text):
+    return [s for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s]
+
+
+def tts_kokoro(display, spoken, out_path):
+    """one sentence at a time, so every sentence has an exact start/end time (that is what keeps captions in sync)"""
+    import wave
+
+    import numpy as np
+
+    eng = _kokoro_engine()
+    disp, spk = split_sentences(display), split_sentences(spoken)
+    if len(disp) != len(spk):
+        raise RuntimeError("sentence count mismatch")
+    parts, sents, t, sr = [], [], 0.0, 24000
+    for d, s in zip(disp, spk):
+        samples, sr = eng.create(s.replace('"', ""), voice=KOKORO_VOICE, speed=KOKORO_SPEED, lang="en-us")
+        x = np.asarray(samples, dtype=np.float32).reshape(-1)
+        loud = np.where(np.abs(x) > 0.012)[0]
+        if len(loud):  # trim the silence the model leaves at both ends
+            x = x[max(0, loud[0] - int(0.03 * sr)): loud[-1] + int(0.08 * sr)]
+        dur = len(x) / sr
+        gap = 0.40 if d.rstrip().endswith("?") else 0.26  # a human-sized breath between sentences
+        sents.append((d, t, t + dur))
+        parts += [x, np.zeros(int(gap * sr), dtype=np.float32)]
+        t += dur + gap
+    audio = np.concatenate(parts)
+    wav = Path(out_path).with_suffix(".wav")
+    with wave.open(str(wav), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+    run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", wav, "-c:a", "libmp3lame", "-b:a", "192k", out_path])
+    return [], sents
+
+
+def make_voice(display, spoken, out_path):
+    """display = the words shown as captions, spoken = what the voice reads (the name respelled). Returns (word_timings, sentence_timings)."""
+    if VOICE_ENGINE == "kokoro":
+        try:
+            res = tts_kokoro(display, spoken, out_path)
+            log(f"voice: Kokoro ({KOKORO_VOICE}), {len(res[1])} sentences")
+            return res
+        except Exception as e:
+            log(f"Kokoro voice not available ({type(e).__name__}: {str(e)[:160]}); using the edge voice instead")
+    return tts(spoken, out_path)
 
 
 def probe_duration(path):
@@ -726,6 +840,31 @@ def clip_vf(dur, i):
         "vignette=angle=0.45,eq=brightness=-0.07:saturation=1.08,format=yuv420p"
     )
 X264 = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-r", str(FPS), "-an"]
+TRANS = 0.32  # length of the transition between two scenes (seconds)
+XFADES = ["smoothleft", "zoomin", "fadeblack", "smoothright", "circleopen", "dissolve", "smoothup"]
+
+
+def assemble(clip_names, bounds):
+    """join the scene clips into video.mp4; with MOTION on, scenes blend with real transitions centred on each cut"""
+    n = len(clip_names)
+    if n == 1 or not MOTION:
+        (WORK / "concat.txt").write_text("".join(f"file '{c}'\n" for c in clip_names))
+        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", "concat.txt", "-c", "copy", "video.mp4"], cwd=WORK)
+        return
+    cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
+    for c in clip_names:
+        cmd += ["-i", c]
+    fc = [f"[{i}:v]settb=AVTB,fps={FPS},setpts=PTS-STARTPTS,format=yuv420p[s{i}]" for i in range(n)]
+    last, prev = "s0", None
+    for k in range(1, n):
+        tr = random.choice([t for t in XFADES if t != prev])
+        prev = tr
+        off = max(bounds[k][0] - TRANS / 2, 0.1)
+        fc.append(f"[{last}][s{k}]xfade=transition={tr}:duration={TRANS}:offset={off:.3f}[x{k}]")
+        last = f"x{k}"
+    cmd += ["-filter_complex", ";".join(fc), "-map", f"[{last}]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
+            "-pix_fmt", "yuv420p", "-r", str(FPS), "-an", "video.mp4"]
+    run(cmd, cwd=WORK)
 
 
 def get_footage(query, used, dest, tag="x"):
@@ -755,15 +894,17 @@ def get_footage(query, used, dest, tag="x"):
 
 
 def make_clip(src, dur, out, i=0):
+    tmp = Path(out).with_name(Path(out).stem + ".part.mp4")  # a stopped render can't leave a short, playable-looking scene
     if src:
-        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-stream_loop", "-1", "-i", src, "-t", f"{dur:.4f}", "-vf", clip_vf(dur, i), *X264, out])
+        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-stream_loop", "-1", "-i", src, "-t", f"{dur:.4f}", "-vf", clip_vf(dur, i), *X264, tmp])
     else:
         c0, c1 = random.choice(GRADIENTS)
         run([
             "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
             "-i", f"gradients=s=1080x1920:r={FPS}:d={dur:.4f}:speed=0.04:c0={c0}:c1={c1}:nb_colors=2",
-            "-vf", "format=yuv420p", *X264, out,
+            "-vf", "format=yuv420p", *X264, tmp,
         ])
+    os.replace(tmp, out)
 
 
 # --------------------------------------------------------------- captions
@@ -776,24 +917,26 @@ def esc(t):
     return t.replace("\\", "").replace("{", "(").replace("}", ")").replace("\n", " ")
 
 
-HL = r"\c&H00E5FF&"  # active word colour (yellow)
+HL = r"\c&H3CC8FF&"  # the word being spoken: warm gold
 WHITE = r"\c&HFFFFFF&"
 # Fixed lanes (1080x1920). The card is anchored by its BOTTOM edge at CARD_Y (it grows upward);
 # captions are anchored by their TOP edge at CAP_Y. The gap between them means they can never overlap.
 CARD_Y = 860
 CAP_Y = 960
-CHANNEL_TAG = os.getenv("CHANNEL_TAG", CHANNEL_NAME.upper()).strip()  # small watermark at the top; "" = none
+ENTER_MS = 170  # how long a new caption phrase takes to settle in
+CHUNK_CHARS = 18  # short phrases keep each caption on ONE line, so nothing jumps
+CHANNEL_TAG = os.getenv("CHANNEL_TAG", "").strip()  # optional small on-screen name at the top ("" = none: the name is spoken instead)
+SHOW_BRAND_CARD = os.getenv("SHOW_BRAND_CARD", "0") == "1"  # optional closing name card
 # card panel colours (BGR): panel, text
 CARD_LOOK = {
     "wrong": (r"\3c&H2626DC&", r"\c&HFFFFFF&\s1"),   # red panel, white struck-through text
     "right": (r"\3c&H3D8015&", r"\c&HFFFFFF&"),      # green panel, white text
     "neutral": (r"\3c&HFFFFFF&", r"\c&H271811&"),    # white panel, dark text
-    "brand": (r"\3c&H00E5FF&", r"\c&H271811&"),      # yellow panel, dark text (closing channel name)
+    "brand": (r"\3c&H3CC8FF&", r"\c&H271811&"),      # gold panel, dark text (optional closing name card)
 }
-FLASH = r"m 0 0 l 1080 0 1080 1920 0 1920"
 
 
-def chunk_tokens(tokens, size=3, max_chars=24):
+def chunk_tokens(tokens, size=3, max_chars=CHUNK_CHARS):
     chunks, cur = [], []
     for i, t in enumerate(tokens):
         if cur and sum(len(tokens[j]) + 1 for j in cur) + len(t) > max_chars:  # keep lines short and steady
@@ -805,30 +948,37 @@ def chunk_tokens(tokens, size=3, max_chars=24):
             cur = []
     if cur:
         chunks.append(cur)
+    for ci in range(1, len(chunks)):  # avoid a lone word on screen: borrow one from the chunk before it
+        prev, this = chunks[ci - 1], chunks[ci]
+        if len(this) == 1 and len(prev) >= 3 and not re.search(r"[.!?,;:]\"?$", tokens[prev[-1]]):
+            if sum(len(tokens[j]) + 1 for j in this) + len(tokens[prev[-1]]) <= max_chars + 4:
+                chunks[ci] = [prev[-1]] + this
+                chunks[ci - 1] = prev[:-1]
     return chunks
 
 
 def card_events(s, a, b):
-    """one key-phrase card: solid panel, entrance depends on its meaning"""
+    """one key-phrase card: solid panel; entrance depends on its meaning; gentle float while on screen; soft exit"""
     kind = s["card_kind"]
     n = len(s["card"])
     size = int((100 if n <= 14 else 88 if n <= 22 else 76) * TITLE_SCALE)
     panel, textcol = CARD_LOOK[kind]
     base = f"\\an2\\fs{size}\\bord30\\shad0\\4a&HFF&{panel}{textcol}"
     t0 = a + 0.1
+    dur = max(int((b - t0) * 1000), 400)
     if not MOTION:
-        pos = f"\\pos(540,{CARD_Y})"
-        enter = r"\fad(100,100)"
-    elif kind == "wrong":    # slams in, then a short shake: "nope"
-        pos = f"\\pos(540,{CARD_Y})"
-        enter = r"\fad(60,100)\fscx135\fscy135\t(0,120,\fscx100\fscy100)\t(150,210,\frz2.5)\t(210,270,\frz-2.5)\t(270,330,\frz0)"
-    elif kind == "right":    # unfolds from the centre
-        pos = f"\\pos(540,{CARD_Y})"
-        enter = r"\fad(0,100)\clip(540,0,540,1920)\t(0,300,\clip(0,0,1080,1920))\fscx92\fscy92\t(0,300,\fscx100\fscy100)"
-    else:                    # rises into place
-        pos = f"\\move(540,{CARD_Y + 40},540,{CARD_Y},0,260)"
-        enter = r"\fad(140,100)"
-    return f"Dialogue: 2,{ass_time(t0)},{ass_time(b)},Card,,0,0,0,,{{{base}{pos}{enter}}}{esc(s['card'])}"
+        extra = f"\\pos(540,{CARD_Y})\\fad(100,100)"
+    else:
+        float_ = f"\\move(540,{CARD_Y + 8},540,{CARD_Y - 8},0,{dur})"
+        fade_in = r"\alpha&HFF&\t(0,140,\alpha&H00&)"
+        leave = f"\\t({max(dur - 160, 320)},{dur},\\fscx94\\fscy94\\alpha&HFF&)"
+        if kind == "wrong":    # slams in, then a short shake: "nope"
+            extra = float_ + fade_in + r"\fscx135\fscy135\t(0,120,\fscx100\fscy100)\t(150,210,\frz2.5)\t(210,270,\frz-2.5)\t(270,330,\frz0)" + leave
+        elif kind == "right":  # unfolds from the centre
+            extra = float_ + fade_in + r"\clip(540,0,540,1920)\t(0,300,\clip(0,0,1080,1920))\fscx92\fscy92\t(0,300,\fscx100\fscy100)" + leave
+        else:                  # rises into place, softly blurred at first
+            extra = f"\\move(540,{CARD_Y + 40},540,{CARD_Y},0,280)" + fade_in + r"\blur6\t(0,280,\blur0)" + leave
+    return f"Dialogue: 2,{ass_time(t0)},{ass_time(b)},Card,,0,0,0,,{{{base}{extra}}}{esc(s['card'])}"
 
 
 def build_ass(tokens, times, segs, seg_bounds, total):
@@ -843,9 +993,9 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,{CAP_FONT},{CAP_SIZE},&H00FFFFFF,&H00FFFFFF,&H00201008,&H80000000,{capb},0,0,0,100,100,0,0,1,7,3,8,90,90,{CAP_Y},1
+Style: Cap,{CAP_FONT},{CAP_SIZE},&H00FFFFFF,&H00FFFFFF,&H00000000,&H70000000,{capb},0,0,0,100,100,0.6,0,1,0,3,8,90,90,{CAP_Y},1
 Style: Card,{TITLE_FONT},100,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H00000000,{titleb},0,0,0,100,100,1,0,3,30,0,2,90,90,0,1
-Style: Tag,{CAP_FONT},32,&H00FFFFFF,&H00FFFFFF,&H00201008,&H80000000,{capb},0,0,0,100,100,8,0,1,2,2,8,80,80,175,1
+Style: Tag,{CAP_FONT},32,&H00FFFFFF,&H00FFFFFF,&H00000000,&H70000000,{capb},0,0,0,100,100,8,0,1,0,2,8,80,80,175,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -853,6 +1003,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     lines = []
     chunks = chunk_tokens(tokens)
     for ci, chunk in enumerate(chunks):
+        chunk_start = times[chunk[0]][0]
         nxt_chunk_start = times[chunks[ci + 1][0]][0] if ci + 1 < len(chunks) else total
         for k, idx in enumerate(chunk):
             start = times[idx][0]
@@ -864,24 +1015,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             parts = []
             for j in chunk:
                 w = esc(tokens[j]).replace('"', "").rstrip(".,;:")
-                parts.append(f"{{{HL}}}{w}{{{WHITE}}}" if j == idx else w)  # spoken word in accent colour; size never changes
-            fade = r"{\fad(80,0)}" if (k == 0 and MOTION) else ""
-            lines.append(f"Dialogue: 1,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{fade}{' '.join(parts)}")
+                parts.append(f"{{{HL}}}{w}{{{WHITE}}}" if j == idx else w)  # spoken word in gold; size never changes
+            # every event in a phrase sits at the SAME spot with the SAME text, so only the colour moves.
+            # A new phrase rises in softly (blur -> sharp); words spoken during that moment continue the same motion.
+            rem = max(0, ENTER_MS - int((start - chunk_start) * 1000)) if MOTION else 0
+            if rem:
+                p = rem / ENTER_MS
+                tr = (f"\\an8\\move(540,{CAP_Y + int(30 * p)},540,{CAP_Y},0,{rem})\\blur{7 * p:.1f}\\t(0,{rem},\\blur1)"
+                      f"\\alpha&H{int(255 * p):02X}&\\t(0,{rem},\\alpha&H00&)")
+            else:
+                tr = f"\\an8\\pos(540,{CAP_Y})\\blur1"
+            lines.append(f"Dialogue: 1,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{{{tr}}}{' '.join(parts)}")
     for (a, b), s in zip(seg_bounds, segs):
         if s["card"]:
             lines.append(card_events(s, a, b))
-    if CHANNEL_NAME and segs and not segs[-1]["card"]:  # closing brand card over the last line
+    brand_card = bool(SHOW_BRAND_CARD and CHANNEL_NAME and segs and not segs[-1]["card"])
+    if brand_card:  # optional closing name card over the last line
         a, b = seg_bounds[-1]
         lines.append(card_events({"card": CHANNEL_NAME.upper(), "card_kind": "brand"}, a, b))
-    if MOTION:  # soft dip at every cut so scene changes feel smooth, not abrupt
-        for a, _ in seg_bounds[1:]:
-            lines.append(
-                f"Dialogue: 0,{ass_time(a)},{ass_time(a + 0.26)},Cap,,0,0,0,,"
-                f"{{\\an7\\pos(0,0)\\p1\\bord0\\shad0\\1c&H000000&\\1a&H60&\\t(0,240,\\1a&HFF&)}}{FLASH}"
-            )
     if CHANNEL_TAG:
-        brand_card = bool(CHANNEL_NAME and segs and not segs[-1]["card"])
-        tag_end = seg_bounds[-1][0] if brand_card else total  # the closing card shows the name, so the watermark steps aside
+        tag_end = seg_bounds[-1][0] if brand_card else total
         lines.append(f"Dialogue: 1,{ass_time(0.3)},{ass_time(tag_end)},Tag,,0,0,0,,{{\\fad(500,0)\\1a&H55&}}{esc(CHANNEL_TAG)}")
     return head + "\n".join(lines) + "\n"
 
@@ -963,7 +1116,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-upload", action="store_true", help="make the video but don't upload it")
     ap.add_argument("--offline-test", action="store_true", help="no internet: sample lesson, fake audio, gradient background")
+    ap.add_argument("--name-test", action="store_true", help="make one audio file that says your name in several spellings")
     args = ap.parse_args()
+
+    if args.name_test:
+        variants = [v.strip() for v in (os.getenv("NAME_VARIANTS") or "Elliooren,Ellie-Uren,Elly-oo-ren,Ellie Ooren,Elleeyooren,Elee-uren").split(",") if v.strip()]
+        OUT.mkdir(parents=True, exist_ok=True)
+        said = " ".join(f"Option {i + 1}. I'm {v}." for i, v in enumerate(variants))
+        make_voice(said, said, OUT / "name_test.mp3")
+        log("name test ready: " + " | ".join(f"{i + 1}={v}" for i, v in enumerate(variants)))
+        return
 
     for tool in ("ffmpeg", "ffprobe"):
         if not shutil.which(tool):
@@ -977,7 +1139,7 @@ def main():
     setup_fonts()
 
     history = load_history()
-    lesson = validate(SAMPLE_LESSON) if args.offline_test else make_lesson(history)
+    lesson = ensure_cta(validate(SAMPLE_LESSON) if args.offline_test else make_lesson(history))
     segs = lesson["segments"]
     log("\nTITLE:", lesson["title"])
     for s in segs:
@@ -991,7 +1153,8 @@ def main():
              "-af", "volume=0.1", "-ar", "24000", "-ac", "1", voice_path])
         wb, sents = [], []
     else:
-        wb, sents = tts(text, voice_path)
+        spoken = re.sub(re.escape(CREATOR_NAME), SPOKEN_NAME, text, flags=re.I) if CREATOR_NAME and SPOKEN_NAME else text
+        wb, sents = make_voice(text, spoken, voice_path)  # the voice says SPOKEN_NAME; captions keep the real spelling
     audio_dur = probe_duration(voice_path)
     total = q(audio_dur + 0.6)
     times = align(tokens, wb, audio_dur, sents)
@@ -1008,11 +1171,11 @@ def main():
         src = WORK / f"raw_{i}.mp4"
         got = False if args.offline_test else get_footage(s["visual"], used, src, i)
         clip = WORK / f"clip_{i:02d}.mp4"
-        make_clip(src if got else None, max(b - a, 0.5), clip, i)
+        pad = (TRANS / 2 if i > 0 else 0) + (TRANS / 2 + 0.4 if i < len(segs) - 1 else 0.4) if MOTION else 0
+        make_clip(src if got else None, max(b - a, 0.5) + pad, clip, i)
         clip_files.append(clip.name)
         log(f"clip {i + 1}/{len(segs)}: {'stock footage' if got else 'gradient'} ({b - a:.1f}s) - {s['visual']}")
-    (WORK / "concat.txt").write_text("".join(f"file '{n}'\n" for n in clip_files))
-    run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", "concat.txt", "-c", "copy", "video.mp4"], cwd=WORK)
+    assemble(clip_files, bounds)
 
     (WORK / "captions.ass").write_text(build_ass(tokens, times, segs, bounds, total))
     final = OUT / f"short_{date.today().isoformat()}.mp4"
