@@ -208,9 +208,9 @@ function render(t){
 function rectOf(e){const r=e.getBoundingClientRect();return {l:r.left,t:r.top,r:r.right,b:r.bottom};}
 function visibleRects(t){
   render(t);const out=[];
-  if(hook&&hook.box.style.opacity>.08){const rs=hook.lines.map(rectOf);out.push({k:'title',l:Math.min(...rs.map(r=>r.l)),t:Math.min(...rs.map(r=>r.t)),r:Math.max(...rs.map(r=>r.r)),b:Math.max(...rs.map(r=>r.b))});}
-  cards.forEach((o,i)=>{if(o.card.style.opacity>.08)out.push({k:'card'+i,...rectOf(o.card)});});
-  chunks.forEach((c,i)=>{if(c.ln.style.opacity>.08)out.push({k:'cap'+i,...rectOf(c.ln)});});
+  if(hook&&hook.box.style.opacity>.25){const rs=hook.lines.map(rectOf);out.push({k:'title',l:Math.min(...rs.map(r=>r.l)),t:Math.min(...rs.map(r=>r.t)),r:Math.max(...rs.map(r=>r.r)),b:Math.max(...rs.map(r=>r.b))});}
+  cards.forEach((o,i)=>{if(o.card.style.opacity>.25)out.push({k:'card'+i,...rectOf(o.card)});});
+  chunks.forEach((c,i)=>{if(c.ln.style.opacity>.25)out.push({k:'cap'+i,...rectOf(c.ln)});});
   return out;
 }
 window.render=render;window.visibleRects=visibleRects;

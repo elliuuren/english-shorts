@@ -99,8 +99,8 @@ def _fetch_font(paths):
 
 def _family(path):
     try:
-        out = subprocess.run(["fc-scan", "--format", "%{family[0]}", str(path)], capture_output=True, text=True).stdout.strip()
-        return out or None
+        out = subprocess.run(["fc-scan", "--format", "%{family[0]}\\n", str(path)], capture_output=True, text=True).stdout.strip()
+        return (out.splitlines()[0].strip() if out else "") or None
     except Exception:
         return None
 
@@ -610,6 +610,9 @@ def _kokoro_engine():
     except ImportError:
         log("installing kokoro-onnx ...")
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", "kokoro-onnx"], check=True, timeout=900)
+        import importlib
+
+        importlib.invalidate_caches()
         from kokoro_onnx import Kokoro
     KOKORO_DIR.mkdir(parents=True, exist_ok=True)
     paths = []
@@ -631,9 +634,9 @@ def tts_kokoro(display, spoken, out_path):
     """one sentence at a time, so every sentence has an exact start/end time (that is what keeps captions in sync)"""
     import wave
 
+    eng = _kokoro_engine()  # installs kokoro-onnx (and numpy) on first use
     import numpy as np
 
-    eng = _kokoro_engine()
     disp, spk = split_sentences(display), split_sentences(spoken)
     if len(disp) != len(spk):
         raise RuntimeError("sentence count mismatch")
@@ -1075,7 +1078,8 @@ def build_motion_spec(lesson, tokens, times, segs, bounds, total):
         words = [[esc(tokens[j]).replace('"', ""), round(times[j][0], 3)] for j in chunk]
         out_chunks.append({"a": round(a, 3), "b": round(max(b, a + 0.45), 3), "words": words})
     for i in range(len(out_chunks) - 1):  # two phrases are never on screen together
-        out_chunks[i]["b"] = round(min(out_chunks[i]["b"], max(out_chunks[i + 1]["a"], out_chunks[i]["a"] + 0.3)), 3)
+        out_chunks[i]["b"] = round(min(out_chunks[i]["b"], out_chunks[i + 1]["a"] - 0.02), 3)
+        out_chunks[i]["b"] = max(out_chunks[i]["b"], round(out_chunks[i]["a"] + 0.1, 3))
     lines, gold = hook_lines(lesson.get("hook_title"))
     hook = {"lines": lines, "gold": gold, "a": 0.05, "b": 2.2}
     cards = []
