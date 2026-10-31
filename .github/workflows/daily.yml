@@ -9,6 +9,14 @@ on:
         description: "Make the video but don't upload it"
         type: boolean
         default: false
+      name_test:
+        description: "Name test: make ONE audio file that says your name in several spellings (no video)"
+        type: boolean
+        default: false
+      name_variants:
+        description: "Name test only: spellings to try, separated by commas (leave empty for the default list)"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -29,10 +37,13 @@ jobs:
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
       YT_PRIVACY: private
+      VOICE_ENGINE: kokoro
+      KOKORO_VOICE: am_michael
       VOICE: en-US-AndrewMultilingualNeural
       VOICE_RATE: "+3%"
+      SPOKEN_NAME: "Elliooren"
+      NAME_VARIANTS: ${{ inputs.name_variants }}
       GREETING: ""
-      CTA: "Follow for one tip every day."
     steps:
       - uses: actions/checkout@v4
 
@@ -50,14 +61,16 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Make the Short
-        run: python main.py ${{ inputs.no_upload && '--no-upload' || '' }}
+        run: python main.py ${{ inputs.name_test && '--name-test' || (inputs.no_upload && '--no-upload' || '') }}
 
       - name: Keep a copy of the video
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: short-video
-          path: output/short_*.mp4
+          path: |
+            output/short_*.mp4
+            output/name_test.mp3
           retention-days: 7
           if-no-files-found: ignore
 
@@ -66,7 +79,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          f=$(ls output/short_*.mp4 2>/dev/null | head -n1)
+          f=$(ls output/short_*.mp4 output/name_test.mp3 2>/dev/null | head -n1)
           if [ -z "$f" ]; then echo "no video to publish"; exit 0; fi
           gh release create "short-$(date -u +%Y%m%d-%H%M%S)" "$f" --title "Short $(date -u +%F)" --notes "Auto-generated Short."
           gh release list --limit 100 --json tagName --jq '.[30:][].tagName' | while read t; do gh release delete "$t" --cleanup-tag --yes; done
