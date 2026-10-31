@@ -1116,16 +1116,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-upload", action="store_true", help="make the video but don't upload it")
     ap.add_argument("--offline-test", action="store_true", help="no internet: sample lesson, fake audio, gradient background")
-    ap.add_argument("--name-test", action="store_true", help="make one audio file that says your name in several spellings")
     args = ap.parse_args()
-
-    if args.name_test:
-        variants = [v.strip() for v in (os.getenv("NAME_VARIANTS") or "Elliooren,Ellie-Uren,Elly-oo-ren,Ellie Ooren,Elleeyooren,Elee-uren").split(",") if v.strip()]
-        OUT.mkdir(parents=True, exist_ok=True)
-        said = " ".join(f"Option {i + 1}. I'm {v}." for i, v in enumerate(variants))
-        make_voice(said, said, OUT / "name_test.mp3")
-        log("name test ready: " + " | ".join(f"{i + 1}={v}" for i, v in enumerate(variants)))
-        return
 
     for tool in ("ffmpeg", "ffprobe"):
         if not shutil.which(tool):
