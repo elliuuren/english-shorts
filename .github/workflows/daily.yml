@@ -20,7 +20,7 @@ concurrency:
 jobs:
   make-short:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
@@ -29,11 +29,11 @@ jobs:
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
       YT_PRIVACY: private            # change to "public" once you're happy with the videos
+      MOTION_ENGINE: html            # html = animated motion graphics (needs the browser step) | ass = classic look
       VOICE_ENGINE: kokoro           # kokoro = newer, more natural male voice | edge = the older voice
       KOKORO_VOICE: am_michael       # male options: am_michael, am_adam, am_fenrir, am_puck, bm_george, bm_lewis
       VOICE: en-US-AndrewMultilingualNeural   # backup voice, used only if Kokoro fails
       VOICE_RATE: "+3%"
-      SPOKEN_NAME: "Elliooren"       # how the voice says Elliuuren; change the spelling if it sounds off
       GREETING: ""                   # optional spoken greeting before the hook, e.g. "Hey friends!"
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +50,10 @@ jobs:
 
       - name: Install Python packages
         run: pip install -r requirements.txt
+
+      - name: Install the browser that draws the motion graphics
+        run: python -m playwright install --with-deps chromium
+        continue-on-error: true        # if this fails the video still renders, with the classic look
 
       - name: Make the Short
         run: python main.py ${{ inputs.no_upload && '--no-upload' || '' }}
