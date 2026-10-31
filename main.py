@@ -41,8 +41,8 @@ VOICE_RATE = os.getenv("VOICE_RATE", "+3%")
 VOICE_PITCH = os.getenv("VOICE_PITCH", "+0Hz")
 YT_PRIVACY = os.getenv("YT_PRIVACY", "private")  # private | unlisted | public
 GREETING = os.getenv("GREETING", "").strip()  # optional spoken greeting before the hook
-# The closing line. It says the creator's name out loud (see SPOKEN_NAME) instead of showing it on screen.
-CTA = os.getenv("CLOSING_LINE", f"I'm {os.getenv('CREATOR_NAME', 'Elliuuren')}. Follow for one English tip every day.").strip()  # "" = none
+# No spoken closing line or name in the video (branding comes from the channel itself).
+CTA = ""
 # How the voice should say the name. A respelling written as ONE word works best, e.g. "Elliooren".
 SPOKEN_NAME = os.getenv("SPOKEN_NAME", "Elliooren").strip()
 # Voice: "kokoro" = a newer, more natural open-source voice that runs on the GitHub server (male voices: am_michael,
@@ -78,6 +78,7 @@ FONT_FILES = {
     "caption": ["ofl/playfairdisplay/static/PlayfairDisplay-SemiBold.ttf", "ofl/playfairdisplay/static/PlayfairDisplay-Bold.ttf",
                 "ofl/playfairdisplay/PlayfairDisplay-Bold.ttf", "ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf"],
     "title": ["ofl/anton/Anton-Regular.ttf"],
+    "ui": ["ofl/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf"],
 }
 
 
@@ -135,6 +136,7 @@ def setup_fonts():
             fam2 = f and _family(f)
             if fam2:
                 TITLE_FONT, TITLE_BOLD, TITLE_SCALE = fam2, False, 1.24
+        _fetch_font(FONT_FILES["ui"])  # used by the HTML motion graphics only; optional
     if CAP_FONT == FONT:
         CAP_SIZE = 80  # the fallback font is wider
     print(f"fonts: subtitles={CAP_FONT!r}, titles={TITLE_FONT!r}" + (f"  [{', '.join(notes)}]" if notes else ""), flush=True)
@@ -223,6 +225,7 @@ def clean_query(query):
 SAMPLE_LESSON = {
     "topic": "I am agree vs I agree",
     "title": "Stop saying \"I am agree\" (say this instead)",
+    "hook_title": "STOP SAYING THIS",
     "description": "Agree is a verb, so you never need \"am\". Say \"I agree\" and you're done.",
     "hashtags": ["#learnenglish", "#english", "#englishtips", "#shorts"],
     "segments": [
@@ -391,6 +394,7 @@ def build_prompt(category, hook_style, recent, notes=""):
     shape = {
         "topic": "3-6 word label of the lesson, used to avoid repeats",
         "title": "YouTube title, max 60 characters, makes a learner curious, no lies",
+        "hook_title": "2 to 4 words (max 20 characters in total) shown HUGE on screen during the first two seconds. It teases the lesson, for example STOP SAYING THIS or THE WORD YOU MISUSE or SOUND MORE NATURAL",
         "description": "1-2 plain sentences summarising the tip",
         "hashtags": ["#learnenglish", "#english", "#englishtips", "#shorts"],
         "segments": [
@@ -438,6 +442,13 @@ def clean_text(s):
     return re.sub(r"\s+", " ", s).strip()
 
 
+def clean_hook_title(s):
+    """2 to 4 short words, letters only, upper case; "" if unusable (a safe default is used instead)"""
+    words = re.sub(r"[^A-Za-z' ]", " ", clean_text(s)).upper().split()[:4]
+    text = " ".join(words)
+    return text if 1 <= len(words) <= 4 and len(text) <= 22 else ""
+
+
 def validate(lesson):
     segs = lesson.get("segments")
     if not isinstance(segs, list) or not 5 <= len(segs) <= 9:
@@ -470,6 +481,7 @@ def validate(lesson):
     return {
         "topic": clean_text(lesson.get("topic")) or clean_text(lesson.get("title")),
         "title": clean_text(lesson.get("title"))[:95] or "English tip",
+        "hook_title": clean_hook_title(lesson.get("hook_title")),
         "description": clean_text(lesson.get("description")),
         "hashtags": tags,
         "segments": clean,
@@ -821,6 +833,7 @@ FALLBACK_QUERIES = [
     "mountains nature", "ocean waves", "tea cup steam", "rain window", "sunrise hills",
 ]
 GRADIENTS = [("0x0f2027", "0x2c5364"), ("0x41295a", "0x2f0743"), ("0x134e5e", "0x71b280"), ("0x232526", "0x414345"), ("0x1f4037", "0x99f2c8")]
+MOTION_ENGINE = os.getenv("MOTION_ENGINE", "html").strip().lower()  # html = animated overlay made with a headless browser | ass = classic look
 MOTION = os.getenv("MOTION", "1") == "1"  # slow camera push, vignette, progress bar, animated cards. 0 = plain
 
 
@@ -1039,8 +1052,46 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return head + "\n".join(lines) + "\n"
 
 
+# --------------------------------------------------- HTML motion graphics
+def hook_lines(title):
+    """split the hook title into 1 to 3 big lines; returns (lines, index of the gold line)"""
+    words = (title or "").split() or ["QUICK", "ENGLISH", "TIP"]
+    if len(words) <= 3:
+        lines = words
+    else:  # 4 words -> 2 + 2
+        lines = [" ".join(words[:2]), " ".join(words[2:])]
+    return lines, (1 if len(lines) > 1 else 0)
+
+
+def build_motion_spec(lesson, tokens, times, segs, bounds, total):
+    chunks = chunk_tokens(tokens)
+    out_chunks = []
+    for ci, chunk in enumerate(chunks):
+        a = max(0.0, times[chunk[0]][0] - 0.02)
+        nxt = times[chunks[ci + 1][0]][0] if ci + 1 < len(chunks) else total
+        last = times[chunk[-1]]
+        b = nxt if nxt - last[1] < 0.5 else last[1] + 0.2
+        b = min(b, nxt, total)
+        words = [[esc(tokens[j]).replace('"', ""), round(times[j][0], 3)] for j in chunk]
+        out_chunks.append({"a": round(a, 3), "b": round(max(b, a + 0.45), 3), "words": words})
+    for i in range(len(out_chunks) - 1):  # two phrases are never on screen together
+        out_chunks[i]["b"] = round(min(out_chunks[i]["b"], max(out_chunks[i + 1]["a"], out_chunks[i]["a"] + 0.3)), 3)
+    lines, gold = hook_lines(lesson.get("hook_title"))
+    hook = {"lines": lines, "gold": gold, "a": 0.05, "b": 2.2}
+    cards = []
+    for (a, b), s in zip(bounds, segs):
+        if not s["card"]:
+            continue
+        start = a + 0.1
+        if a < hook["b"] - 0.4:  # the first card waits until the hook title has left the screen
+            start = max(start, hook["b"] - 0.45)
+        if b - start >= 0.7:
+            cards.append({"a": round(start, 3), "b": round(b, 3), "text": s["card"], "kind": s["card_kind"]})
+    return {"total": round(total, 3), "fps": FPS, "hook": hook, "cards": cards, "chunks": out_chunks}
+
+
 # ------------------------------------------------------------------ render
-def render_final(total, out):
+def render_final(total, out, motion_dir=None):
     exts = (".mp3", ".m4a", ".wav", ".ogg", ".aac")
     tracks = [p for p in MUSIC_DIR.iterdir() if p.suffix.lower() in exts] if MUSIC_DIR.exists() else []
     music = random.choice(tracks) if tracks else None  # any audio file in assets/ works; one is picked per video
@@ -1051,13 +1102,20 @@ def render_final(total, out):
          "-frames:v", "1", "scrim.png"], cwd=WORK)
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", "video.mp4", "-i", "voice.mp3", "-i", "scrim.png"]
     tail = "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100[a]"
+    mi = 3  # input number of the music file
+    if motion_dir:
+        cmd += ["-framerate", str(FPS), "-i", str(Path(motion_dir) / "%05d.png")]
+        mi = 4
     if music:
         cmd += ["-stream_loop", "-1", "-i", music]
-        fc = f"[1:a]apad=pad_dur=1[v];[3:a]volume={MUSIC_VOLUME}[m];[v][m]amix=inputs=2:duration=first:normalize=0,{tail}"
+        fc = f"[1:a]apad=pad_dur=1[v];[{mi}:a]volume={MUSIC_VOLUME}[m];[v][m]amix=inputs=2:duration=first:normalize=0,{tail}"
     else:
         fc = f"[1:a]apad=pad_dur=1,{tail}"
     fd = f":fontsdir='{FONTS_DIR}'" if FONTS_DIR.exists() and any(FONTS_DIR.iterdir()) else ""
-    fc += f";[0:v][2:v]overlay=0:0:format=auto[bg];[bg]ass=captions.ass{fd}[vv]"
+    if motion_dir:
+        fc += ";[0:v][2:v]overlay=0:0:format=auto[bg];[bg][3:v]overlay=0:0:format=auto[vv]"
+    else:
+        fc += f";[0:v][2:v]overlay=0:0:format=auto[bg];[bg]ass=captions.ass{fd}[vv]"
     cmd += [
         "-filter_complex", fc, "-map", "[vv]", "-map", "[a]", "-t", f"{total:.3f}",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
@@ -1144,7 +1202,7 @@ def main():
              "-af", "volume=0.1", "-ar", "24000", "-ac", "1", voice_path])
         wb, sents = [], []
     else:
-        spoken = re.sub(re.escape(CREATOR_NAME), SPOKEN_NAME, text, flags=re.I) if CREATOR_NAME and SPOKEN_NAME else text
+        spoken = text
         wb, sents = make_voice(text, spoken, voice_path)  # the voice says SPOKEN_NAME; captions keep the real spelling
     audio_dur = probe_duration(voice_path)
     total = q(audio_dur + 0.6)
@@ -1168,9 +1226,29 @@ def main():
         log(f"clip {i + 1}/{len(segs)}: {'stock footage' if got else 'gradient'} ({b - a:.1f}s) - {s['visual']}")
     assemble(clip_files, bounds)
 
-    (WORK / "captions.ass").write_text(build_ass(tokens, times, segs, bounds, total))
+    (WORK / "captions.ass").write_text(build_ass(tokens, times, segs, bounds, total))  # classic look (also the fallback)
+    motion_dir = None
+    if MOTION and MOTION_ENGINE == "html":
+        try:
+            import motion
+            spec = build_motion_spec(lesson, tokens, times, segs, bounds, total)
+            problems, _ = motion.check_layout(spec, WORK / "motion_check", FONTS_DIR, step=0.1)
+            if problems:
+                log("motion layout check:", problems[:6])
+                raise RuntimeError(f"layout check found {len(problems)} problem(s)")
+            motion.render_overlay(spec, WORK / "motion", FONTS_DIR, log)
+            motion_dir = WORK / "motion"
+        except Exception as e:
+            log(f"HTML motion graphics unavailable ({e!r}); using the classic look instead")
+            motion_dir = None
     final = OUT / f"short_{date.today().isoformat()}.mp4"
-    render_final(total, final)
+    try:
+        render_final(total, final, motion_dir)
+    except Exception as e:
+        if not motion_dir:
+            raise
+        log(f"final render with motion graphics failed ({e!r}); using the classic look instead")
+        render_final(total, final, None)
     log(f"\nvideo ready: {final} ({probe_duration(final):.1f}s)")
 
     if args.offline_test:
