@@ -47,7 +47,7 @@ CTA = ""
 SPOKEN_NAME = os.getenv("SPOKEN_NAME", "Elliooren").strip()
 # Voice: "kokoro" = a newer, more natural open-source voice that runs on the GitHub server (male voices: am_michael,
 # am_adam, am_fenrir, am_puck, bm_george, bm_lewis). "edge" = Microsoft's voice. Kokoro falls back to edge by itself.
-VOICE_ENGINE = os.getenv("VOICE_ENGINE", "gemini").strip().lower()  # gemini (most expressive) | kokoro | edge; each falls back to the next
+VOICE_ENGINE = os.getenv("VOICE_ENGINE", "edge").strip().lower()  # gemini (most expressive) | kokoro | edge; each falls back to the next
 KOKORO_VOICE = os.getenv("KOKORO_VOICE", "am_michael").strip()
 KOKORO_SPEED = float(os.getenv("KOKORO_SPEED", "1.0"))
 
