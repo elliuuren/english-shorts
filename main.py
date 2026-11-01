@@ -47,7 +47,7 @@ CTA = ""
 SPOKEN_NAME = os.getenv("SPOKEN_NAME", "Elliooren").strip()
 # Voice: "kokoro" = a newer, more natural open-source voice that runs on the GitHub server (male voices: am_michael,
 # am_adam, am_fenrir, am_puck, bm_george, bm_lewis). "edge" = Microsoft's voice. Kokoro falls back to edge by itself.
-VOICE_ENGINE = os.getenv("VOICE_ENGINE", "kokoro").strip().lower()
+VOICE_ENGINE = os.getenv("VOICE_ENGINE", "gemini").strip().lower()  # gemini (most expressive) | kokoro | edge; each falls back to the next
 KOKORO_VOICE = os.getenv("KOKORO_VOICE", "am_michael").strip()
 KOKORO_SPEED = float(os.getenv("KOKORO_SPEED", "1.0"))
 
@@ -663,9 +663,109 @@ def tts_kokoro(display, spoken, out_path):
     return [], sents
 
 
+GEMINI_TTS_VOICE = os.getenv("GEMINI_TTS_VOICE", "Achird").strip()  # male voices: Achird (friendly), Puck (upbeat), Charon, Orus, Fenrir
+_tts_models = None
+
+
+def _gemini_tts_models():
+    global _tts_models
+    if _tts_models is None:
+        found = []
+        try:
+            r = requests.get(f"{GEMINI_BASE}/models", params={"key": GEMINI_KEY, "pageSize": 200}, timeout=30)
+            r.raise_for_status()
+            for m in r.json().get("models", []):
+                n = m.get("name", "").replace("models/", "")
+                if "tts" in n and "generateContent" in m.get("supportedGenerationMethods", []):
+                    found.append(n)
+        except Exception as e:
+            log("could not list speech models:", repr(e)[:120])
+        found.sort(key=lambda n: ("flash" not in n, "preview" in n, n))
+        _tts_models = found or ["gemini-2.5-flash-preview-tts"]
+    return _tts_models
+
+
+def sentence_direction(i, n, d):
+    """how the sentence should be performed (plain words the speech model follows)"""
+    if i == 0:
+        return "in a punchy, confident, attention-grabbing way, like a friend who just spotted a common mistake"
+    if d.rstrip().endswith("?"):
+        return "in a curious, friendly way with a clearly rising tone at the end, then wait for the answer"
+    if i == n - 1:
+        return "warmly and invitingly, smiling, like asking a friend a question"
+    if '"' in d:
+        return "calmly, with clear emphasis on the quoted phrase, slowing slightly on it"
+    return "in a relaxed, natural, expressive way, with gentle stress on the key words and a smile in the voice"
+
+
+def tts_gemini(display, spoken, out_path):
+    """Gemini speech model, one sentence at a time with its own acting note. Returns ([], sentence timings)."""
+    import base64
+    import wave
+
+    import numpy as np
+
+    disp, spk = split_sentences(display), split_sentences(spoken)
+    if len(disp) != len(spk):
+        raise RuntimeError("sentence count mismatch")
+    parts, sents, t, sr = [], [], 0.0, 24000
+    for i, (d, s) in enumerate(zip(disp, spk)):
+        prompt = f"Say {sentence_direction(i, len(spk), d)}: {s.replace(chr(34), '')}"
+        body = {"contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"responseModalities": ["AUDIO"],
+                                     "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": GEMINI_TTS_VOICE}}}}}
+        pcm = None
+        for attempt in range(6):
+            model = _gemini_tts_models()[attempt % len(_gemini_tts_models())]
+            try:
+                r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent", params={"key": GEMINI_KEY}, json=body, timeout=(10, 90))
+                if r.status_code == 429:
+                    time.sleep(22)
+                    continue
+                r.raise_for_status()
+                for p in r.json()["candidates"][0]["content"]["parts"]:
+                    if "inlineData" in p:
+                        pcm = base64.b64decode(p["inlineData"]["data"])
+                        break
+                if pcm:
+                    break
+            except Exception as e:
+                log(f"  speech attempt {attempt + 1} failed: {repr(e)[:110]}")
+                time.sleep(4)
+        if not pcm:
+            raise RuntimeError(f"no audio for sentence {i + 1}")
+        x = np.frombuffer(pcm[: len(pcm) // 2 * 2], dtype="<i2").astype(np.float32) / 32768.0
+        loud = np.where(np.abs(x) > 0.01)[0]
+        if len(loud):
+            x = x[max(0, loud[0] - int(0.03 * sr)): loud[-1] + int(0.09 * sr)]
+        dur = len(x) / sr
+        gap = 0.42 if d.rstrip().endswith("?") else 0.28
+        sents.append((d, t, t + dur))
+        parts += [x, np.zeros(int(gap * sr), dtype=np.float32)]
+        t += dur + gap
+    audio = np.concatenate(parts)
+    peak = float(np.max(np.abs(audio))) or 1.0
+    audio = audio * min(1.0, 0.89 / peak)
+    wav = Path(out_path).with_suffix(".wav")
+    with wave.open(str(wav), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+    run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", wav, "-c:a", "libmp3lame", "-b:a", "192k", out_path])
+    return [], sents
+
+
 def make_voice(display, spoken, out_path):
     """display = the words shown as captions, spoken = what the voice reads (the name respelled). Returns (word_timings, sentence_timings)."""
-    if VOICE_ENGINE == "kokoro":
+    if VOICE_ENGINE == "gemini":
+        try:
+            res = tts_gemini(display, spoken, out_path)
+            log(f"voice: Gemini speech ({GEMINI_TTS_VOICE}), {len(res[1])} sentences")
+            return res
+        except Exception as e:
+            log(f"Gemini voice not available ({type(e).__name__}: {str(e)[:160]}); trying Kokoro")
+    if VOICE_ENGINE in ("gemini", "kokoro"):
         try:
             res = tts_kokoro(display, spoken, out_path)
             log(f"voice: Kokoro ({KOKORO_VOICE}), {len(res[1])} sentences")
@@ -1082,27 +1182,60 @@ def build_motion_spec(lesson, tokens, times, segs, bounds, total):
         out_chunks[i]["b"] = max(out_chunks[i]["b"], round(out_chunks[i]["a"] + 0.1, 3))
     lines, gold = hook_lines(lesson.get("hook_title"))
     hook = {"lines": lines, "gold": gold, "a": 0.05, "b": 2.2}
-    cards = []
+    cards, last_wrong = [], None
     for (a, b), s in zip(bounds, segs):
         if not s["card"]:
             continue
         start = a + 0.1
-        if a < hook["b"] - 0.4:  # the first card waits until the hook title has left the screen
-            start = max(start, hook["b"] - 0.45)
-        if b - start >= 0.7:
-            cards.append({"a": round(start, 3), "b": round(b, 3), "text": s["card"], "kind": s["card_kind"]})
-    return {"total": round(total, 3), "fps": FPS, "hook": hook, "cards": cards, "chunks": out_chunks}
+        if a < hook["b"]:  # the first card waits until the hook title has left the screen
+            start = max(start, hook["b"] - 0.1)
+        if b - start < 0.7:
+            continue
+        card = {"a": round(start, 3), "b": round(b, 3), "text": s["card"], "kind": s["card_kind"]}
+        d, n = b - start, len(s["card"])
+        if s["card_kind"] == "wrong":
+            last_wrong = s["card"]
+        if s["card_kind"] in ("wrong", "right") and d >= 2.4:  # these two get the animated chat panel
+            if s["card_kind"] == "right" and last_wrong:
+                ck = min(start + 1.5, b - 1.3)
+                card["ui"] = {"mode": "fix", "old": last_wrong, "chip": round(start + 0.5, 3), "click": round(ck, 3)}
+            else:
+                ts = start + 0.9
+                dt = min(0.09, max(0.035, ((b - 0.55) - ts - 0.9) / max(n, 1)))
+                te = ts + n * dt
+                card["ui"] = {"mode": "wrong" if s["card_kind"] == "wrong" else "ok", "ts": round(ts, 3), "dt": round(dt, 4), "err": round(te + 0.12, 3)}
+        cards.append(card)
+    spec = {"total": round(total, 3), "fps": FPS, "hook": hook, "cards": cards, "chunks": out_chunks}
+    spec["sfx"] = sfx_events(spec)
+    return spec
+
+
+def sfx_events(spec):
+    ev = [(0.12, "whoosh")]
+    for c in spec["cards"]:
+        u = c.get("ui")
+        if not u:
+            ev.append((c["a"] + 0.2, "pop"))
+            continue
+        ev.append((c["a"], "whoosh"))
+        if u["mode"] in ("wrong", "ok"):
+            ev += [(u["ts"] + i * u["dt"], "tick") for i in range(len(c["text"]))]
+            ev.append((u["err"], "error" if u["mode"] == "wrong" else "chime"))
+        else:
+            ev += [(u["chip"], "pop"), (u["click"], "click"), (u["click"] + 0.3, "chime")]
+    return [(round(t, 3), k) for t, k in ev if 0 <= t < spec["total"]]
 
 
 # ------------------------------------------------------------------ render
-def render_final(total, out, motion_dir=None):
+def render_final(total, out, motion_dir=None, sfx_path=None):
     exts = (".mp3", ".m4a", ".wav", ".ogg", ".aac")
     tracks = [p for p in MUSIC_DIR.iterdir() if p.suffix.lower() in exts] if MUSIC_DIR.exists() else []
     music = random.choice(tracks) if tracks else None  # any audio file in assets/ works; one is picked per video
     log(f"background music: {music.name if music else 'none (add a file to the assets folder)'}")
     # soft dark band behind the text lanes, so captions stay readable on any footage
     run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=1080x1920",
-         "-vf", "format=gbrap,geq=r='0':g='0':b='0':a='255*(0.14+0.30*exp(-pow((Y/H-0.47)/0.2,2)))'",
+         "-vf", ("format=gbrap,geq=r='0':g='0':b='0':a='255*(0.36+0.30*exp(-pow((Y/H-0.5)/0.28,2)))'" if motion_dir
+                 else "format=gbrap,geq=r='0':g='0':b='0':a='255*(0.14+0.30*exp(-pow((Y/H-0.47)/0.2,2)))'"),
          "-frames:v", "1", "scrim.png"], cwd=WORK)
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", "video.mp4", "-i", "voice.mp3", "-i", "scrim.png"]
     tail = "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100[a]"
@@ -1110,9 +1243,19 @@ def render_final(total, out, motion_dir=None):
     if motion_dir:
         cmd += ["-framerate", str(FPS), "-i", str(Path(motion_dir) / "%05d.png")]
         mi = 4
+    si = None
+    if sfx_path:
+        si = mi
+        cmd += ["-i", str(sfx_path)]
+        mi += 1
+    mus = []
     if music:
         cmd += ["-stream_loop", "-1", "-i", music]
-        fc = f"[1:a]apad=pad_dur=1[v];[{mi}:a]volume={MUSIC_VOLUME}[m];[v][m]amix=inputs=2:duration=first:normalize=0,{tail}"
+        mus.append(f"[{mi}:a]volume={MUSIC_VOLUME}[m]")
+    mix = ["[v]"] + (["[m]"] if music else []) + (["[fx]"] if sfx_path else [])
+    pre = ["[1:a]apad=pad_dur=1[v]"] + mus + ([f"[{si}:a]volume=0.55,apad=pad_dur=1[fx]"] if sfx_path else [])
+    if len(mix) > 1:
+        fc = ";".join(pre) + f";{''.join(mix)}amix=inputs={len(mix)}:duration=first:normalize=0,{tail}"
     else:
         fc = f"[1:a]apad=pad_dur=1,{tail}"
     fd = f":fontsdir='{FONTS_DIR}'" if FONTS_DIR.exists() and any(FONTS_DIR.iterdir()) else ""
@@ -1231,7 +1374,7 @@ def main():
     assemble(clip_files, bounds)
 
     (WORK / "captions.ass").write_text(build_ass(tokens, times, segs, bounds, total))  # classic look (also the fallback)
-    motion_dir = None
+    motion_dir, sfx_path = None, None
     if MOTION and MOTION_ENGINE == "html":
         try:
             import motion
@@ -1242,12 +1385,18 @@ def main():
                 raise RuntimeError(f"layout check found {len(problems)} problem(s)")
             motion.render_overlay(spec, WORK / "motion", FONTS_DIR, log)
             motion_dir = WORK / "motion"
+            try:
+                import sfx
+                sfx_path = sfx.make_track(spec["sfx"], total, WORK / "sfx.wav")
+                log(f"sound effects: {len(spec['sfx'])} cues")
+            except Exception as e:
+                log(f"sound effects skipped ({e!r})")
         except Exception as e:
             log(f"HTML motion graphics unavailable ({e!r}); using the classic look instead")
             motion_dir = None
     final = OUT / f"short_{date.today().isoformat()}.mp4"
     try:
-        render_final(total, final, motion_dir)
+        render_final(total, final, motion_dir, sfx_path)
     except Exception as e:
         if not motion_dir:
             raise
