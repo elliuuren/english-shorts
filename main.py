@@ -686,16 +686,59 @@ def _gemini_tts_models():
 
 
 def sentence_direction(i, n, d):
-    """how the sentence should be performed (plain words the speech model follows)"""
+    """one short style word per sentence (long instructions get read out loud by the speech model)"""
     if i == 0:
-        return "in a punchy, confident, attention-grabbing way, like a friend who just spotted a common mistake"
+        return "energetically"
     if d.rstrip().endswith("?"):
-        return "in a curious, friendly way with a clearly rising tone at the end, then wait for the answer"
+        return "curiously"
     if i == n - 1:
-        return "warmly and invitingly, smiling, like asking a friend a question"
+        return "warmly"
     if '"' in d:
-        return "clearly, with strong emphasis on the quoted phrase"
-    return "in a natural, expressive way, with stress on the key words and a smile in the voice"
+        return "clearly"
+    return "naturally"
+
+
+def _norm_words(t):
+    return re.sub(r"[^a-z0-9' ]", " ", t.lower()).split()
+
+
+def _transcribe(pcm, sr=24000):
+    """ask a Gemini text model what was actually said (None if it can't tell)"""
+    import io
+    import wave
+
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(pcm)
+    body = {"contents": [{"parts": [{"text": "Transcribe this audio exactly, word for word. Output only the transcript, nothing else."},
+                                    {"inlineData": {"mimeType": "audio/wav", "data": base64.b64encode(buf.getvalue()).decode()}}]}],
+            "generationConfig": {"temperature": 0}}
+    for model in gemini_models()[:2]:
+        try:
+            r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent", params={"key": GEMINI_KEY}, json=body, timeout=(10, 60))
+            if r.status_code == 429:
+                time.sleep(15)
+                continue
+            r.raise_for_status()
+            return "".join(p.get("text", "") for p in r.json()["candidates"][0]["content"]["parts"]).strip()
+        except Exception:
+            continue
+    return None
+
+
+def said_ok(transcript, sentence):
+    """True if the audio says the sentence and nothing extra (no stage directions read aloud)"""
+    if transcript is None:
+        return True
+    exp, got = _norm_words(sentence), _norm_words(transcript)
+    if not got:
+        return False
+    if len(got) > len(exp) + max(2, len(exp) // 4) or len(got) < len(exp) * 0.7:
+        return False
+    return sum(1 for a, b in zip(exp[:3], got[:3]) if a == b) >= min(2, len(exp))
 
 
 def refine_words(x, sr, words, t0):
@@ -743,30 +786,40 @@ def tts_gemini(display, spoken, out_path):
         raise RuntimeError("sentence count mismatch")
     parts, sents, wb, t, sr = [], [], [], 0.0, 24000
     for i, (d, s) in enumerate(zip(disp, spk)):
-        prompt = f"Say {sentence_direction(i, len(spk), d)}, at a brisk, energetic, conversational pace with no long pauses: {s.replace(chr(34), '')}"
-        body = {"contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"responseModalities": ["AUDIO"],
-                                     "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": GEMINI_TTS_VOICE}}}}}
+        plain = s.replace(chr(34), "")
         pcm = None
-        for attempt in range(6):
-            model = _gemini_tts_models()[attempt % len(_gemini_tts_models())]
-            try:
-                r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent", params={"key": GEMINI_KEY}, json=body, timeout=(10, 90))
-                if r.status_code == 429:
-                    time.sleep(22)
-                    continue
-                r.raise_for_status()
-                for p in r.json()["candidates"][0]["content"]["parts"]:
-                    if "inlineData" in p:
-                        pcm = base64.b64decode(p["inlineData"]["data"])
+        for style in (sentence_direction(i, len(spk), d), ""):  # second try: no style word at all
+            prompt = f"Say {style}: {plain}" if style else plain
+            body = {"contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"responseModalities": ["AUDIO"],
+                                         "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": GEMINI_TTS_VOICE}}}}}
+            got = None
+            for attempt in range(6):
+                model = _gemini_tts_models()[attempt % len(_gemini_tts_models())]
+                try:
+                    r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent", params={"key": GEMINI_KEY}, json=body, timeout=(10, 90))
+                    if r.status_code == 429:
+                        time.sleep(22)
+                        continue
+                    r.raise_for_status()
+                    for p in r.json()["candidates"][0]["content"]["parts"]:
+                        if "inlineData" in p:
+                            got = base64.b64decode(p["inlineData"]["data"])
+                            break
+                    if got:
                         break
-                if pcm:
-                    break
-            except Exception as e:
-                log(f"  speech attempt {attempt + 1} failed: {repr(e)[:110]}")
-                time.sleep(4)
+                except Exception as e:
+                    log(f"  speech attempt {attempt + 1} failed: {repr(e)[:110]}")
+                    time.sleep(4)
+            if not got:
+                continue
+            heard = _transcribe(got[: len(got) // 2 * 2])
+            if said_ok(heard, plain):
+                pcm = got
+                break
+            log(f"  sentence {i + 1}: audio did not match the script (heard: {str(heard)[:80]!r}); " + ("retrying without style" if style else "giving up"))
         if not pcm:
-            raise RuntimeError(f"no audio for sentence {i + 1}")
+            raise RuntimeError(f"no clean audio for sentence {i + 1}")
         x = np.frombuffer(pcm[: len(pcm) // 2 * 2], dtype="<i2").astype(np.float32) / 32768.0
         loud = np.where(np.abs(x) > 0.01)[0]
         if len(loud):
@@ -787,6 +840,8 @@ def tts_gemini(display, spoken, out_path):
         w.setframerate(sr)
         w.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
     nwords = sum(len(d.split()) for d in disp)
+    if t / 1.4 > 62:
+        raise RuntimeError(f"voice too long ({t:.0f}s)")
     tempo = max(1.0, min(1.4, 2.6 / max(nwords / max(t, 1.0), 0.1)))  # too slow? speed the whole voice up (pitch stays)
     if tempo > 1.04:
         log(f"voice pace: {nwords / t:.2f} words/s, speeding up x{tempo:.2f}")
@@ -1235,10 +1290,13 @@ def build_motion_spec(lesson, tokens, times, segs, bounds, total):
             continue
         if set(re.sub(r"[^a-z ]", "", s["card"].lower()).split()) <= set(re.sub(r"[^a-z ]", "", (lesson.get("hook_title") or "").lower()).split()) and a < hook["b"]:
             continue  # the title already says it
-        card = {"a": round(start, 3), "b": round(b, 3), "text": s["card"], "kind": s["card_kind"]}
-        d, n = b - start, len(s["card"])
+        text = s["card"]
+        if text.isupper() and len(text) > 3:  # sentence case looks like a real typed sentence
+            text = re.sub(r"\bi\b", "I", text[0] + text[1:].lower())
+        card = {"a": round(start, 3), "b": round(b, 3), "text": text, "kind": s["card_kind"]}
+        d, n = b - start, len(text)
         if s["card_kind"] == "wrong":
-            last_wrong = s["card"]
+            last_wrong = text
         if s["card_kind"] == "neutral" and d >= 2.4:
             ts = start + 0.8
             dt = min(0.07, max(0.03, ((b - 0.55) - ts - 0.7) / max(n, 1)))
@@ -1282,7 +1340,7 @@ def render_final(total, out, motion_dir=None, sfx_path=None):
     log(f"background music: {music.name if music else 'none (add a file to the assets folder)'}")
     # soft dark band behind the text lanes, so captions stay readable on any footage
     run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=1080x1920",
-         "-vf", ("format=gbrap,geq=r='4':g='6':b='18':a='255*(0.60+0.22*exp(-pow((Y/H-0.5)/0.28,2)))'" if motion_dir
+         "-vf", ("format=gbrap,geq=r='0':g='0':b='0':a='255*(0.12+0.26*exp(-pow((Y/H-0.5)/0.30,2)))'" if motion_dir
                  else "format=gbrap,geq=r='0':g='0':b='0':a='255*(0.14+0.30*exp(-pow((Y/H-0.47)/0.2,2)))'"),
          "-frames:v", "1", "scrim.png"], cwd=WORK)
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", "video.mp4", "-i", "voice.mp3", "-i", "scrim.png"]

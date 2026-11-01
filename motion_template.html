@@ -42,9 +42,9 @@ const KIND={
 const amb=[];
 for(let i=0;i<6;i++){const r=60+(i%3)*40;amb.push(el('div','position:absolute;border-radius:50%;width:'+2*r+'px;height:'+2*r+'px;background:'+(i%2?'#8fb4ff':'#c9a0ff')+';opacity:.07;filter:blur(14px)'));}
 
-const cg=el('div','position:absolute;left:140px;top:560px;width:800px;height:800px;border-radius:50%;background:radial-gradient(closest-side,rgba(110,120,255,.30),rgba(110,120,255,0));filter:blur(40px)');
-const eg1=el('div','position:absolute;left:-330px;top:420px;width:520px;height:1200px;border-radius:50%;background:radial-gradient(closest-side,rgba(70,110,255,.42),rgba(70,110,255,0));filter:blur(30px)');
-const eg2=el('div','position:absolute;right:-330px;top:300px;width:520px;height:1200px;border-radius:50%;background:radial-gradient(closest-side,rgba(150,95,255,.38),rgba(150,95,255,0));filter:blur(30px)');
+const cg=el('div','position:absolute;left:140px;top:560px;width:800px;height:800px;border-radius:50%;background:radial-gradient(closest-side,rgba(110,120,255,.10),rgba(110,120,255,0));filter:blur(40px)');
+const eg1=el('div','position:absolute;left:-330px;top:420px;width:520px;height:1200px;border-radius:50%;background:radial-gradient(closest-side,rgba(70,110,255,.22),rgba(70,110,255,0));filter:blur(30px)');
+const eg2=el('div','position:absolute;right:-330px;top:300px;width:520px;height:1200px;border-radius:50%;background:radial-gradient(closest-side,rgba(150,95,255,.20),rgba(150,95,255,0));filter:blur(30px)');
 /* ---------- hook title ---------- */
 let hook=null;
 if(D.hook&&D.hook.lines&&D.hook.lines.length){
