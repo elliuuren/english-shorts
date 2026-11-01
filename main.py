@@ -424,7 +424,7 @@ SHAPE: hook, then the problem (one beat of tension), then the reveal (the correc
 ACCURACY
 Teach only things that are definitely correct and natural in standard English today. If American and British usage differ, say so in one short sentence.
 
-LENGTH: 6 to 8 segments, 85 to 110 spoken words in total.
+LENGTH: 6 to 7 segments, 70 to 90 spoken words in total. Short and punchy beats thorough.
 
 {visual_rule}
 CARD: optional big on-screen text for the key phrase of that segment, max 5 words, otherwise "". card_kind is "wrong" for an incorrect version, "right" for a correct version, "neutral" otherwise. Use cards on 3 to 5 segments.
@@ -694,8 +694,41 @@ def sentence_direction(i, n, d):
     if i == n - 1:
         return "warmly and invitingly, smiling, like asking a friend a question"
     if '"' in d:
-        return "calmly, with clear emphasis on the quoted phrase, slowing slightly on it"
-    return "in a relaxed, natural, expressive way, with gentle stress on the key words and a smile in the voice"
+        return "clearly, with strong emphasis on the quoted phrase"
+    return "in a natural, expressive way, with stress on the key words and a smile in the voice"
+
+
+def refine_words(x, sr, words, t0):
+    """word start/end times inside one sentence: boundaries snap to the quietest moments near where each word should begin"""
+    import numpy as np
+
+    n = len(words)
+    dur = len(x) / sr
+    ws = []
+    for w in words:
+        k = len(re.sub(r"\W", "", w)) + 2
+        ws.append(k + (4 if re.search(r"[,;:]$", w) else 0))
+    cum = np.cumsum(ws) / sum(ws)
+    hop = int(0.01 * sr)
+    m = len(x) // hop
+    if n < 2 or m < 8:
+        edges = [0.0] + [float(c) * dur for c in cum]
+    else:
+        env = np.sqrt(np.mean(x[: m * hop].reshape(m, hop) ** 2, axis=1))
+        env = np.convolve(env, np.ones(3) / 3, mode="same")
+        edges, last = [0.0], 0.0
+        for k in range(n - 1):
+            e = float(cum[k]) * dur
+            lo, hi = max(last + 0.06, e - 0.22), min(dur - 0.06 * (n - 1 - k), e + 0.22)
+            if hi <= lo:
+                edges.append(min(max(e, last + 0.05), dur))
+            else:
+                a, b = int(lo * 100), max(int(hi * 100), int(lo * 100) + 1)
+                seg = env[a:b] + 0.0008 * np.abs(np.arange(a, b) - e * 100) / 22.0  # prefer quiet AND near the expected spot
+                edges.append((a + int(np.argmin(seg))) / 100.0)
+            last = edges[-1]
+        edges.append(dur)
+    return [(t0 + edges[i], t0 + edges[i + 1]) for i in range(n)]
 
 
 def tts_gemini(display, spoken, out_path):
@@ -708,9 +741,9 @@ def tts_gemini(display, spoken, out_path):
     disp, spk = split_sentences(display), split_sentences(spoken)
     if len(disp) != len(spk):
         raise RuntimeError("sentence count mismatch")
-    parts, sents, t, sr = [], [], 0.0, 24000
+    parts, sents, wb, t, sr = [], [], [], 0.0, 24000
     for i, (d, s) in enumerate(zip(disp, spk)):
-        prompt = f"Say {sentence_direction(i, len(spk), d)}: {s.replace(chr(34), '')}"
+        prompt = f"Say {sentence_direction(i, len(spk), d)}, at a brisk, energetic, conversational pace with no long pauses: {s.replace(chr(34), '')}"
         body = {"contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"responseModalities": ["AUDIO"],
                                      "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": GEMINI_TTS_VOICE}}}}}
@@ -739,8 +772,9 @@ def tts_gemini(display, spoken, out_path):
         if len(loud):
             x = x[max(0, loud[0] - int(0.03 * sr)): loud[-1] + int(0.09 * sr)]
         dur = len(x) / sr
-        gap = 0.42 if d.rstrip().endswith("?") else 0.28
+        gap = 0.34 if d.rstrip().endswith("?") else 0.2
         sents.append((d, t, t + dur))
+        wb += [("", a, b) for a, b in refine_words(x, sr, d.split(), t)]
         parts += [x, np.zeros(int(gap * sr), dtype=np.float32)]
         t += dur + gap
     audio = np.concatenate(parts)
@@ -752,8 +786,16 @@ def tts_gemini(display, spoken, out_path):
         w.setsampwidth(2)
         w.setframerate(sr)
         w.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
-    run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", wav, "-c:a", "libmp3lame", "-b:a", "192k", out_path])
-    return [], sents
+    nwords = sum(len(d.split()) for d in disp)
+    tempo = max(1.0, min(1.4, 2.6 / max(nwords / max(t, 1.0), 0.1)))  # too slow? speed the whole voice up (pitch stays)
+    if tempo > 1.04:
+        log(f"voice pace: {nwords / t:.2f} words/s, speeding up x{tempo:.2f}")
+        sents = [(d, a / tempo, b / tempo) for d, a, b in sents]
+        wb = [(w, a / tempo, b / tempo) for w, a, b in wb]
+        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", wav, "-af", f"atempo={tempo:.3f}", "-c:a", "libmp3lame", "-b:a", "192k", out_path])
+    else:
+        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", wav, "-c:a", "libmp3lame", "-b:a", "192k", out_path])
+    return wb, sents
 
 
 def make_voice(display, spoken, out_path):
@@ -1191,11 +1233,17 @@ def build_motion_spec(lesson, tokens, times, segs, bounds, total):
             start = max(start, hook["b"] - 0.1)
         if b - start < 0.7:
             continue
+        if set(re.sub(r"[^a-z ]", "", s["card"].lower()).split()) <= set(re.sub(r"[^a-z ]", "", (lesson.get("hook_title") or "").lower()).split()) and a < hook["b"]:
+            continue  # the title already says it
         card = {"a": round(start, 3), "b": round(b, 3), "text": s["card"], "kind": s["card_kind"]}
         d, n = b - start, len(s["card"])
         if s["card_kind"] == "wrong":
             last_wrong = s["card"]
-        if s["card_kind"] in ("wrong", "right") and d >= 2.4:  # these two get the animated chat panel
+        if s["card_kind"] == "neutral" and d >= 2.4:
+            ts = start + 0.8
+            dt = min(0.07, max(0.03, ((b - 0.55) - ts - 0.7) / max(n, 1)))
+            card["ui"] = {"mode": "idea", "ts": round(ts, 3), "dt": round(dt, 4), "err": round(ts + n * dt + 0.1, 3)}
+        elif s["card_kind"] in ("wrong", "right") and d >= 2.4:  # these get the animated chat panel
             if s["card_kind"] == "right" and last_wrong:
                 ck = min(start + 1.5, b - 1.3)
                 card["ui"] = {"mode": "fix", "old": last_wrong, "chip": round(start + 0.5, 3), "click": round(ck, 3)}
@@ -1218,9 +1266,9 @@ def sfx_events(spec):
             ev.append((c["a"] + 0.2, "pop"))
             continue
         ev.append((c["a"], "whoosh"))
-        if u["mode"] in ("wrong", "ok"):
+        if u["mode"] in ("wrong", "ok", "idea"):
             ev += [(u["ts"] + i * u["dt"], "tick") for i in range(len(c["text"]))]
-            ev.append((u["err"], "error" if u["mode"] == "wrong" else "chime"))
+            ev.append((u["err"], "error" if u["mode"] == "wrong" else ("pop" if u["mode"] == "idea" else "chime")))
         else:
             ev += [(u["chip"], "pop"), (u["click"], "click"), (u["click"] + 0.3, "chime")]
     return [(round(t, 3), k) for t, k in ev if 0 <= t < spec["total"]]
@@ -1234,7 +1282,7 @@ def render_final(total, out, motion_dir=None, sfx_path=None):
     log(f"background music: {music.name if music else 'none (add a file to the assets folder)'}")
     # soft dark band behind the text lanes, so captions stay readable on any footage
     run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=1080x1920",
-         "-vf", ("format=gbrap,geq=r='0':g='0':b='0':a='255*(0.36+0.30*exp(-pow((Y/H-0.5)/0.28,2)))'" if motion_dir
+         "-vf", ("format=gbrap,geq=r='4':g='6':b='18':a='255*(0.60+0.22*exp(-pow((Y/H-0.5)/0.28,2)))'" if motion_dir
                  else "format=gbrap,geq=r='0':g='0':b='0':a='255*(0.14+0.30*exp(-pow((Y/H-0.47)/0.2,2)))'"),
          "-frames:v", "1", "scrim.png"], cwd=WORK)
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", "video.mp4", "-i", "voice.mp3", "-i", "scrim.png"]
