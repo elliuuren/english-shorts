@@ -30,7 +30,8 @@ jobs:
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
       YT_PRIVACY: private            # change to "public" once you're happy with the videos
       MOTION_ENGINE: html            # html = animated motion graphics (needs the browser step) | ass = classic look
-      VOICE_ENGINE: kokoro           # kokoro = newer, more natural male voice | edge = the older voice
+      VOICE_ENGINE: gemini           # gemini = most expressive (falls back to kokoro, then edge)
+      GEMINI_TTS_VOICE: Achird       # male: Achird (friendly), Puck (upbeat), Charon, Orus, Fenrir
       KOKORO_VOICE: am_michael       # male options: am_michael, am_adam, am_fenrir, am_puck, bm_george, bm_lewis
       VOICE: en-US-AndrewMultilingualNeural   # backup voice, used only if Kokoro fails
       VOICE_RATE: "+3%"
