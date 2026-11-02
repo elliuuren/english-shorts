@@ -1,0 +1,37 @@
+name: Catch-up (starts a video if the schedule was missed)
+
+on:
+  schedule:
+    - cron: "47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      MAX_AGE_HOURS: "9"
+    steps:
+      - name: Start a video if one is overdue
+        run: |
+          busy=$(gh run list --workflow daily.yml --limit 20 --json status --jq '[.[] | select(.status != "completed")] | length')
+          if [ "${busy:-0}" -gt 0 ]; then echo "A video is already being made - nothing to do."; exit 0; fi
+
+          last=$(gh release list --limit 1 --json createdAt --jq '.[0].createdAt // empty')
+          now=$(date -u +%s)
+          if [ -z "$last" ]; then last_s=0; else last_s=$(date -u -d "$last" +%s); fi
+          age_h=$(( (now - last_s) / 3600 ))
+          echo "Hours since the last video: $age_h (limit $MAX_AGE_HOURS)"
+
+          if [ "$age_h" -ge "$MAX_AGE_HOURS" ]; then
+            echo "Overdue - starting a video now."
+            gh workflow run daily.yml
+          else
+            echo "On time - nothing to do."
+          fi
