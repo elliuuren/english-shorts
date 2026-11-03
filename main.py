@@ -13,6 +13,7 @@ Run:
 import argparse
 import asyncio
 import base64
+import copy
 import json
 import os
 import random
@@ -50,6 +51,9 @@ SPOKEN_NAME = os.getenv("SPOKEN_NAME", "Elliooren").strip()
 VOICE_ENGINE = os.getenv("VOICE_ENGINE", "edge").strip().lower()  # gemini (most expressive) | kokoro | edge; each falls back to the next
 KOKORO_VOICE = os.getenv("KOKORO_VOICE", "am_michael").strip()
 KOKORO_SPEED = float(os.getenv("KOKORO_SPEED", "1.0"))
+# Storytelling: "v2" = every video is a tiny story (open loop, scene, twist, payoff, loop ending) and a second "editor"
+# pass sharpens a weak hook. "classic" = the previous prompt exactly. If anything in v2 fails, the classic result is used.
+STORY_MODE = os.getenv("STORY_MODE", "v2").strip().lower()
 
 
 def pick_font():
@@ -440,6 +444,27 @@ def build_prompt(category, hook_style, recent, notes="", idea=None):
             {"say": "spoken line(s)", "visual": "2-4 word stock video search", "card": "optional big on-screen text or empty string", "card_kind": "wrong | right | neutral"}
         ],
     }
+    classic_story = (
+        "SHAPE: hook, then the problem (one beat of tension), then the reveal (the correct answer), then one real-life example "
+        "sentence someone would actually say, then an optional quick memory trick, then the ending. The ending asks one tiny "
+        f"question the viewer can answer in the comments. {cta}"
+    )
+    v2_story = (
+        "STORY (this is what keeps people watching: tell a tiny story with an open loop, not a list of facts)\n"
+        "1. HOOK: creates a tension the video will resolve (a mistake, a trap, a surprise or a question the viewer wants answered).\n"
+        "2. SCENE: one short, vivid moment in the second person where the mistake costs something, e.g. 'Picture this: you tell your boss ...'. "
+        "Imaginary scenes only. Never claim anything about a real person and never invent statistics.\n"
+        "3. TURN: one small surprise just before the fix ('But here's the twist.' / 'And the reason is weirdly simple.'). "
+        "Never hold the answer back beyond the fourth segment.\n"
+        "4. FIX: the correct version, said clearly, plus one real sentence someone would actually say.\n"
+        "5. MEMORY HOOK (optional): a quick trick that makes it stick.\n"
+        "6. LOOP ENDING: the last line echoes the key words of the hook so that, when the Short replays, the end flows straight back "
+        "into the start, and it invites one tiny comment answer.\n"
+        "RHYTHM: each segment is one beat of 6 to 16 words. Vary the sentence lengths; never three sentences of the same length in a row. "
+        "Join beats with 'but' and 'so', never 'and then', so each beat makes the viewer need the next one. "
+        f"{cta}"
+    )
+    story_block = v2_story if STORY_MODE == "v2" else classic_story
     return f"""You write spoken scripts for a YouTube Shorts channel that teaches English to learners around the world (roughly B1-B2 level).
 
 LESSON TYPE TODAY: {category}
@@ -464,7 +489,7 @@ THE HOOK (segment 1) - this decides everything
 
 PACE (choose like a video editor who reads the mood of the topic): slow = calm explanations, pronunciation, comfort and confidence topics; medium = most lessons; fast = quizzes, slang, challenges, funny comparisons, texting; superfast = rapid-fire lists, word upgrades, speed drills. Fast and superfast scripts use shorter sentences.
 
-SHAPE: hook, then the problem (one beat of tension), then the reveal (the correct answer), then one real-life example sentence someone would actually say, then an optional quick memory trick, then the ending. The ending asks one tiny question the viewer can answer in the comments. {cta}
+{story_block}
 
 ACCURACY
 Teach only things that are definitely correct and natural in standard English today. If American and British usage differ, say so in one short sentence.
@@ -554,6 +579,55 @@ def verify_lesson(lesson):
         return True, ""
 
 
+def critic_prompt(lesson):
+    lines = [f"{i + 1}. {x['say']}" for i, x in enumerate(lesson["segments"])]
+    return (
+        "You are a short-form video editor who studies audience retention on YouTube Shorts. Below is a finished script for a Short that teaches English.\n"
+        "Rate the HOOK (segment 1) from 1 to 10: would a stranger stop scrolling within one second? 10 = specific, tense, impossible to ignore; 5 = generic.\n"
+        "Rate the ENDING (last segment) from 1 to 10 for loop quality: does it echo the hook so the replay flows, and invite a tiny comment answer?\n"
+        "If hook_score is below 8, write a better first segment. Rules: 4 to 10 words; keep the SAME mistake, word or phrase the lesson is about; "
+        "create tension or a question; no greeting; never start with 'Did you know', 'Today', 'Hey', 'Let's' or 'In this video'; "
+        "no invented statistics; it must be true and must not change what the lesson teaches.\n"
+        "If loop_score is below 8, write a better last segment: at most 18 words, echoing the key words of the hook, still ending with one tiny question the viewer can answer in the comments.\n"
+        "Also write hook_title: 2 or 3 punchy words, at most 18 characters, matching the hook.\n"
+        'Reply as JSON: {"hook_score": number, "loop_score": number, "better_hook": "" or text, "better_ending": "" or text, "hook_title": "" or text}\n\n'
+        "SCRIPT:\n" + "\n".join(lines)
+    )
+
+
+def sharpen(lesson):
+    """optional editor pass: a retention critic rewrites a weak hook or ending. The result must pass the same checks
+    (rules + strict teacher) as any lesson; otherwise the original lesson is kept untouched."""
+    if STORY_MODE != "v2":
+        return lesson
+    try:
+        res = gemini_json(critic_prompt(lesson), 0.6)
+        hook_score, loop_score = float(res.get("hook_score", 10)), float(res.get("loop_score", 10))
+        hook, end = clean_text(res.get("better_hook")), clean_text(res.get("better_ending"))
+        new, changed = copy.deepcopy(lesson), []
+        if hook_score < 8 and 4 <= len(hook.split()) <= 12 and not re.match(r"(did you know|today|hey|let's|in this video)", hook, re.I):
+            new["segments"][0]["say"] = hook
+            title = clean_hook_title(res.get("hook_title"))
+            if title:
+                new["hook_title"] = title
+            changed.append("hook")
+        if loop_score < 8 and 4 <= len(end.split()) <= 20:
+            new["segments"][-1]["say"] = end
+            changed.append("ending")
+        log(f"editor pass: hook {hook_score:g}/10, ending {loop_score:g}/10" + (f" -> rewriting {', '.join(changed)}" if changed else " -> keeping the script"))
+        if not changed:
+            return lesson
+        new = validate(new)  # same rules as always (length, banned phrases ...)
+        ok, issues = verify_lesson(new)
+        if not ok:
+            log(f"editor pass rejected by the teacher check ({issues[:120]}); keeping the original script")
+            return lesson
+        return new
+    except Exception as e:
+        log(f"editor pass skipped ({str(e)[:120]}); keeping the original script")
+        return lesson
+
+
 def ensure_cta(lesson):
     """the last line of every video is exactly the closing line (it says the creator's name out loud)"""
     if not CTA:
@@ -605,6 +679,7 @@ def make_lesson(history):
                     f"{issues[:300]}\nOnly teach points that are 100% correct. Never label a natural, correct phrase as wrong.\n"
                 )
                 raise ValueError(f"teacher check failed: {issues}")
+            lesson = sharpen(lesson)
             lesson["category"] = category
             lesson["idea"] = idea["idea"] if idea else ""
             lesson["series"] = idea["series"] if idea else ""
@@ -989,14 +1064,18 @@ def align(tokens, wb, total, sents=None):
 
 # --------------------------------------------------------------- footage
 def pexels_list(query, used):
-    r = requests.get(
-        "https://api.pexels.com/videos/search",
-        headers={"Authorization": PEXELS_KEY},
-        params={"query": query, "orientation": "portrait", "size": "medium", "per_page": 15},
-        timeout=30,
-    )
-    r.raise_for_status()
-    vids = [v for v in r.json().get("videos", []) if f"pexels:{v['id']}" not in used and v.get("duration", 0) >= 4 and is_clean(v.get("url", ""))]
+    vids = []
+    for page in (random.choice((1, 1, 2, 3)), 1):  # a random result page keeps the same search from always giving the same clips
+        r = requests.get(
+            "https://api.pexels.com/videos/search",
+            headers={"Authorization": PEXELS_KEY},
+            params={"query": query, "orientation": "portrait", "size": "medium", "per_page": 15, "page": page},
+            timeout=30,
+        )
+        r.raise_for_status()
+        vids = [v for v in r.json().get("videos", []) if f"pexels:{v['id']}" not in used and v.get("duration", 0) >= 4 and is_clean(v.get("url", ""))]
+        if vids:
+            break
     random.shuffle(vids)
     out = []
     for v in vids:
@@ -1008,13 +1087,17 @@ def pexels_list(query, used):
 
 
 def pixabay_list(query, used):
-    r = requests.get(
-        "https://pixabay.com/api/videos/",
-        params={"key": PIXABAY_KEY, "q": query[:100], "per_page": 20, "safesearch": "true", "min_height": 720, "video_type": "film"},
-        timeout=30,
-    )
-    r.raise_for_status()
-    hits = [h for h in r.json().get("hits", []) if f"pixabay:{h['id']}" not in used and h.get("duration", 0) >= 4 and is_clean(h.get("tags", ""))]
+    hits = []
+    for page in (random.choice((1, 1, 2, 3)), 1):
+        r = requests.get(
+            "https://pixabay.com/api/videos/",
+            params={"key": PIXABAY_KEY, "q": query[:100], "per_page": 20, "safesearch": "true", "min_height": 720, "video_type": "film", "page": page},
+            timeout=30,
+        )
+        r.raise_for_status()
+        hits = [h for h in r.json().get("hits", []) if f"pixabay:{h['id']}" not in used and h.get("duration", 0) >= 4 and is_clean(h.get("tags", ""))]
+        if hits:
+            break
     random.shuffle(hits)
     out = []
     for h in hits:
@@ -1028,16 +1111,33 @@ def pixabay_list(query, used):
 
 
 def stock_candidates(query, used):
-    """clips from every stock site you have a key for (tag-filtered; the real check happens in vet_clip)"""
-    out = []
+    """clips from every stock site you have a key for, mixed together (tag-filtered; the real check happens in vet_clip)"""
+    lists = []
     for fn, key in ((pexels_list, PEXELS_KEY), (pixabay_list, PIXABAY_KEY)):
         if not key:
             continue
         try:
-            out += fn(query, used)
+            lists.append(fn(query, used))
         except Exception as e:
             log(f"{fn.__name__} problem for '{query}': {e}")
+    out = []
+    for i in range(max((len(x) for x in lists), default=0)):  # take turns, so one site doesn't fill every slot
+        for x in lists:
+            if i < len(x):
+                out.append(x[i])
     return out
+
+
+# Clips used in the last few videos are skipped, so the channel doesn't show the same footage again and again.
+CLIP_MEMORY = int(os.getenv("CLIP_MEMORY", "15"))  # how many past videos to remember
+ACCEPTED = []  # ids of the clips that ended up in this video (saved to history.json)
+
+
+def recent_clips(history):
+    seen = set()
+    for h in history[-CLIP_MEMORY:]:
+        seen.update(h.get("clips") or [])
+    return seen
 
 
 VET = os.getenv("VET_FOOTAGE", "1") == "1"  # 1 = Gemini looks at the clip's frames before it is used
@@ -1147,8 +1247,9 @@ def assemble(clip_names, bounds):
     run(cmd, cwd=WORK)
 
 
-def get_footage(query, used, dest, tag="x"):
-    """find one clean stock clip for this query (checked frame by frame); returns True on success"""
+def get_footage(query, used, dest, tag="x", recent=frozenset()):
+    """find one clean stock clip for this query (checked frame by frame); returns True on success.
+    Clips from recent videos are avoided; they are only used again if nothing new can be found."""
     if not (PEXELS_KEY or PIXABAY_KEY):
         return False
     if VET and _vet_errors >= 4:
@@ -1157,19 +1258,24 @@ def get_footage(query, used, dest, tag="x"):
     words = query.split()
     attempts = [query] + ([" ".join(words[-2:])] if len(words) > 2 else []) + random.sample(FALLBACK_QUERIES, 2)
     checked = 0
-    for qy in attempts:
-        for cid, url in stock_candidates(qy, used)[:4]:
-            if checked >= 6 or (VET and _vet_errors >= 4):  # give up on this scene: a calm gradient beats a risky clip
-                return False
-            used.add(cid)
-            try:
-                download(url, dest)
-            except Exception as e:
-                log(f"download problem for '{qy}': {e}")
-                continue
-            checked += 1
-            if vet_clip(dest, tag):
-                return True
+    for fresh_only in ((True, False) if recent else (False,)):
+        if not fresh_only and recent:
+            log("  no unused clip found for this scene: allowing an older clip")
+        for qy in attempts:
+            avoid = (used | recent) if fresh_only else used
+            for cid, url in stock_candidates(qy, avoid)[:4]:
+                if checked >= 6 or (VET and _vet_errors >= 4):  # give up on this scene: a calm gradient beats a risky clip
+                    return False
+                used.add(cid)
+                try:
+                    download(url, dest)
+                except Exception as e:
+                    log(f"download problem for '{qy}': {e}")
+                    continue
+                checked += 1
+                if vet_clip(dest, tag):
+                    ACCEPTED.append(cid)
+                    return True
     return False
 
 
@@ -1552,9 +1658,11 @@ def main():
         j = min(range(len(shots) - 1), key=lambda x: shots[x + 1][2] - shots[x][1])
         shots[j:j + 2] = [(shots[j][0], shots[j][1], shots[j + 1][2])]
     used, clip_files = set(), []
+    recent = recent_clips(history)
+    log(f"footage memory: avoiding {len(recent)} clips from the last {CLIP_MEMORY} videos")
     for i, (vis, a, b) in enumerate(shots):
         src = WORK / f"raw_{i}.mp4"
-        got = False if args.offline_test else get_footage(vis, used, src, i)
+        got = False if args.offline_test else get_footage(vis, used, src, i, recent)
         clip = WORK / f"clip_{i:02d}.mp4"
         pad = (TRANS / 2 if i > 0 else 0) + (TRANS / 2 + 0.4 if i < len(shots) - 1 else 0.4) if MOTION else 0
         make_clip(src if got else None, max(b - a, 0.5) + pad, clip, i)
@@ -1604,7 +1712,7 @@ def main():
         vid = upload_youtube(final, lesson)
         log(f"uploaded: https://youtube.com/shorts/{vid}  ({YT_PRIVACY})")
 
-    history.append({"date": date.today().isoformat(), "topic": lesson["topic"], "title": lesson["title"], "category": lesson.get("category", ""), "idea": lesson.get("idea", ""), "series": lesson.get("series", "")})
+    history.append({"date": date.today().isoformat(), "topic": lesson["topic"], "title": lesson["title"], "category": lesson.get("category", ""), "idea": lesson.get("idea", ""), "series": lesson.get("series", ""), "clips": list(ACCEPTED)})
     save_history(history)
 
 
