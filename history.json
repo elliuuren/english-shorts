@@ -362,5 +362,29 @@
     "mode": "funny",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-04",
+    "topic": "stop translating in your head",
+    "title": "One Trick To Stop Translating In Your Head",
+    "category": "500 — Speak English Faster: Quick Wins & Bite-Size Challenges",
+    "idea": "One trick to stop translating in your head",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:323110",
+      "pixabay:213041",
+      "pixabay:182060",
+      "pixabay:249475",
+      "pixabay:50803",
+      "pixabay:63338",
+      "pixabay:63535",
+      "pixabay:136554",
+      "pixabay:90453",
+      "pixabay:262184",
+      "pixabay:272040"
+    ],
+    "mode": "explain",
+    "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
+    "grade": "midnight"
   }
 ]
