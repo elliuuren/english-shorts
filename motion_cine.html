@@ -1,0 +1,149 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+/*__FONTFACE__*/
+:root{
+  --disp:'MG Display','Anton','Impact','Arial Narrow',sans-serif;
+  --serif:'MG Serif','Playfair Display','Lora',Georgia,serif;
+  --ui:'MG UI','Space Grotesk','Montserrat','Poppins','Inter',sans-serif;
+}
+html,body{margin:0;padding:0;background:transparent;width:1080px;height:1920px;overflow:hidden}
+*{box-sizing:border-box}
+#stage{position:absolute;left:0;top:0;width:1080px;height:1920px;overflow:hidden;color:#fff;font-family:var(--ui)}
+</style></head>
+<body><div id="stage"></div>
+<script>
+const D=/*__DATA__*/null;
+
+/* CINE style: one line of text at eye level, a key phrase above it, curves that draw themselves under what matters. */
+const EYE=845, CARDY=585, MAXW=940;
+const GOLD=[255,200,60],WHITE=[255,255,255],GOLDC='rgb(255,200,60)',REDC='#ff6b6b';
+
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const pg=(t,a,b)=>cl((t-a)/(b-a));
+const eo=x=>1-Math.pow(1-x,3);
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const mx=(a,b,m)=>a+(b-a)*m;
+const stage=document.getElementById('stage');
+function el(tag,css,parent,txt){const e=document.createElement(tag);if(css)e.style.cssText=css;if(txt!=null)e.textContent=txt;(parent||stage).appendChild(e);return e;}
+function curve(color,d,w,extra,holder){
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('viewBox','0 0 100 20');s.setAttribute('preserveAspectRatio','none');
+  s.style.cssText='position:absolute;overflow:visible;pointer-events:none;'+(extra||'');
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',color);p.setAttribute('stroke-width',w);
+  p.setAttribute('stroke-linecap','round');p.setAttribute('vector-effect','non-scaling-stroke');
+  s.appendChild(p);
+  const cv={svg:s,path:p,holder};
+  setDraw(cv,0);
+  return cv;
+}
+/* the dash is measured in screen pixels (non-scaling stroke), so the length comes from the width of the text it sits under */
+function setDraw(cv,prog){
+  const L=Math.ceil(((cv.holder&&cv.holder.offsetWidth)||300)*1.14+30);
+  cv.path.style.strokeDasharray=L+' '+L;
+  cv.path.style.strokeDashoffset=(L*(1-prog)).toFixed(1);
+}
+const SWOOSH='M2 13 C 26 4, 64 3, 98 10';
+const SCRIBBLE='M0 10 C 10 2, 22 18, 34 8 S 58 3, 70 12 S 90 6, 100 9';
+
+/* ---------- hook: one big word at a time, at eye level ---------- */
+const hook=D.hook&&D.hook.words&&D.hook.words.length?D.hook:null;
+const hw=[];
+if(hook){
+  hook.words.forEach(([w,t],i)=>{
+    const box=el('div','position:absolute;left:50%;top:'+EYE+'px;transform:translate(-50%,-50%);white-space:nowrap;opacity:0',stage);
+    const last=i===hook.words.length-1;
+    const sp=el('span','position:relative;display:inline-block;font-family:var(--disp);letter-spacing:4px;line-height:1.05;text-shadow:0 6px 30px rgba(0,0,0,.55);color:'+(last?GOLDC:'#fff'),box,w);
+    let cv=null;
+    if(last){cv=curve(GOLDC,SWOOSH,7,'left:-3%;width:106%;bottom:-.16em;height:.2em',sp);sp.appendChild(cv.svg);}
+    hw.push({box,sp,cv,t,end:i+1<hook.words.length?hook.words[i+1][1]:hook.b,last});
+  });
+}
+function fitHook(){hw.forEach(o=>{let fs=150;o.sp.style.fontSize=fs+'px';const w=o.sp.scrollWidth;if(w>MAXW){fs=Math.floor(fs*MAXW/w);o.sp.style.fontSize=fs+'px';}});}
+function tickHook(t){
+  hw.forEach(o=>{
+    const vis=t>=o.t&&t<o.end;
+    if(!vis){o.box.style.opacity=0;return;}
+    const u=t-o.t,p=eo(pg(u,0,.12));
+    let op=1;if(o.last)op=1-eio(pg(t,o.end-.2,o.end));
+    o.box.style.opacity=op;
+    o.box.style.transform='translate(-50%,-50%) scale('+(1.2-0.2*p).toFixed(3)+')';
+    if(o.cv)setDraw(o.cv,eo(pg(u,.12,.45)));
+  });
+}
+
+/* ---------- key phrase (upper lane) ---------- */
+const KIND={wrong:{c:REDC,label:'NOT THIS'},right:{c:GOLDC,label:'SAY THIS'},neutral:{c:GOLDC,label:'REMEMBER'}};
+const cards=D.cards.map(c=>{
+  const K=KIND[c.kind]||KIND.neutral;
+  const box=el('div','position:absolute;left:50%;top:'+CARDY+'px;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;opacity:0',stage);
+  const lab=el('div','font-size:26px;letter-spacing:9px;font-weight:700;color:'+K.c+';opacity:.9;margin-bottom:16px',box,K.label);
+  const row=el('div','position:relative;display:inline-block',box);
+  const ph=el('div','position:relative;display:inline-block;font-weight:700;letter-spacing:-1px;line-height:1.1;text-shadow:0 4px 22px rgba(0,0,0,.6);color:'+(c.kind==='wrong'?'rgba(255,255,255,.92)':'#fff'),row,c.text);
+  const cv=c.kind==='wrong'?curve(REDC,SCRIBBLE,7,'left:-4%;width:108%;top:46%;height:.22em',ph)
+                           :curve(GOLDC,SWOOSH,7,'left:-2%;width:104%;bottom:-.2em;height:.2em',ph);
+  ph.appendChild(cv.svg);
+  return {c,K,box,lab,ph,cv};
+});
+function fitCards(){cards.forEach(o=>{let fs=78;o.ph.style.fontSize=fs+'px';const w=o.ph.scrollWidth;if(w>MAXW-40){fs=Math.max(40,Math.floor(fs*(MAXW-40)/w));o.ph.style.fontSize=fs+'px';}});}
+function tickCard(o,t){
+  const c=o.c;
+  if(t<c.a||t>c.b+.02){o.box.style.opacity=0;return;}
+  const u=t-c.a,pin=eo(pg(u,0,.28)),po=eio(pg(t,c.b-.22,c.b));
+  o.box.style.opacity=pin*(1-po);
+  o.box.style.transform='translate(-50%,-50%) translateY('+((1-pin)*22+po*10)+'px)';
+  setDraw(o.cv,eo(pg(u,.35,.8)));
+}
+
+/* ---------- captions: one line, serif, the spoken word turns gold; key words get a drawn curve ---------- */
+const chunks=D.chunks.map(c=>{
+  const ln=el('div','position:absolute;left:50%;top:'+EYE+'px;white-space:nowrap;opacity:0;font-family:var(--serif);font-weight:700;font-size:64px');
+  const words=c.words.map(([w,s,key])=>{
+    const wrap=el('span','position:relative;display:inline-block;margin:0 11px;padding:2px 0 12px;line-height:1.1;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.7)',ln,w);
+    let cv=null;
+    if(key){cv=curve(GOLDC,SWOOSH,5,'left:-2%;width:104%;bottom:2px;height:.2em',wrap);wrap.appendChild(cv.svg);}
+    return {e:wrap,s,cv};
+  });
+  return {a:c.a,b:c.b,ln,words};
+});
+function fitChunks(){chunks.forEach(c=>{let fs=64;c.ln.style.fontSize=fs+'px';const w=c.ln.offsetWidth;if(w>MAXW){fs=Math.max(40,Math.floor(fs*MAXW/w));c.ln.style.fontSize=fs+'px';}});}
+function tickChunk(c,t){
+  const pi=eo(pg(t,c.a,c.a+.18)),po=eio(pg(t,c.b-.12,c.b)),op=pi*(1-po);
+  c.ln.style.opacity=op;
+  if(op<.002)return;
+  c.ln.style.transform='translate(-50%,-50%) translateY('+((1-pi)*14-po*6)+'px)';
+  let k=-1;c.words.forEach((o,i)=>{if(t>=o.s)k=i;});
+  c.words.forEach((o,i)=>{
+    let a=0;
+    if(i===k)a=eo(pg(t,o.s,o.s+.12));
+    else if(i===k-1)a=1-eo(pg(t,c.words[k].s,c.words[k].s+.12));
+    o.e.style.color='rgb('+[0,1,2].map(j=>Math.round(mx(WHITE[j],GOLD[j],a))).join(',')+')';
+    if(o.cv)setDraw(o.cv,t>=o.s?eo(pg(t,o.s,o.s+.3)):0);
+  });
+}
+
+function render(t){tickHook(t);cards.forEach(o=>tickCard(o,t));chunks.forEach(c=>tickChunk(c,t));}
+
+/* ---------- layout self-check ---------- */
+function rectOf(e){const r=e.getBoundingClientRect();return {l:r.left,t:r.top,r:r.right,b:r.bottom};}
+function union(rs){return {l:Math.min(...rs.map(r=>r.l)),t:Math.min(...rs.map(r=>r.t)),r:Math.max(...rs.map(r=>r.r)),b:Math.max(...rs.map(r=>r.b))};}
+function visibleRects(t){
+  render(t);const out=[];
+  hw.forEach((o,i)=>{if(o.box.style.opacity>.25)out.push({k:'hook'+i,...rectOf(o.sp)});});
+  cards.forEach((o,i)=>{if(o.box.style.opacity>.25)out.push({k:'card'+i,...union([rectOf(o.lab),rectOf(o.ph)])});});
+  chunks.forEach((c,i)=>{if(c.ln.style.opacity>.25)out.push({k:'cap'+i,...rectOf(c.ln)});});
+  return out;
+}
+window.render=render;window.visibleRects=visibleRects;
+
+(async()=>{
+  try{
+    await Promise.all(["64px 'MG Serif'","150px 'MG Display'","78px 'MG UI'","700 64px 'Playfair Display'","150px 'Anton'","700 78px 'Space Grotesk'"].map(f=>document.fonts.load(f).catch(()=>{})));
+    await document.fonts.ready;
+  }catch(e){}
+  fitHook();fitCards();fitChunks();
+  render(0);
+  window.__ready=true;
+})().catch(e=>{window.__error=String(e);window.__ready=true;});
+</script></body></html>

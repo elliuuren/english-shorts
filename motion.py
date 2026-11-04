@@ -42,7 +42,8 @@ def write_page(spec, out_dir, fonts_dir):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     css, used = _font_css(fonts_dir)
-    html = TEMPLATE.read_text(encoding="utf-8")
+    tpl = HERE / "motion_cine.html" if spec.get("style") == "cine" else TEMPLATE  # every other style keeps its own, unchanged template
+    html = tpl.read_text(encoding="utf-8")
     html = html.replace("/*__FONTFACE__*/", css).replace("/*__DATA__*/null", json.dumps(spec))
     page = out_dir / "index.html"
     page.write_text(html, encoding="utf-8")
