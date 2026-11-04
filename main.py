@@ -76,17 +76,30 @@ NATURE_DARK = ["night sky stars", "ocean waves dark", "storm clouds", "rain wind
 NATURE_LIGHT = ["sunrise mountains", "blue sky clouds", "beach sunset", "green hills wind", "desert dunes", "snow mountains", "lake reflection", "golden field"]
 
 
-def pick_grade(mood):
+LUT_LOOKS = ["teal_orange", "steel_blue", "golden_hour", "faded_film", "moody_green", "midnight"]
+LUT_MOOD = {"serious": ["steel_blue", "midnight", "moody_green"], "tense": ["steel_blue", "midnight"], "focused": ["steel_blue", "moody_green"],
+            "playful": ["golden_hour", "teal_orange", "faded_film"], "funny": ["golden_hour", "faded_film", "teal_orange"],
+            "energetic": ["teal_orange", "golden_hour"], "calm": ["faded_film", "moody_green", "golden_hour", "midnight"]}
+
+
+def pick_grade(mood, last=None):
     forced = os.getenv("GRADE", "auto").strip().lower()
     if forced == "none":
         return "none", ""
     if GRADE_LUT.exists():
         return "lut", f"lut3d='{GRADE_LUT}',noise=alls=4:allf=t"
-    if forced in GRADES:
-        name = forced
-    else:
-        m = str(mood or "").lower()
-        name = "cold" if m in ("serious", "focused", "tense") else "warm" if m in ("playful", "energetic", "funny", "fun", "upbeat") else "teal"
+    try:
+        import grade
+
+        pool = LUT_MOOD.get(str(mood or "").lower(), LUT_LOOKS)
+        pool = [x for x in pool if x != last] or [x for x in LUT_LOOKS if x != last]
+        name = forced if forced in LUT_LOOKS else random.choice(pool)
+        cube = WORK / f"look_{name}.cube"
+        grade.write_lut(name, cube)
+        return name, f"lut3d=file='{cube}',vignette=angle=0.0,noise=alls=4:allf=t"
+    except Exception as e:
+        log(f"LUT looks unavailable ({str(e)[:80]}); using the built-in grade")
+    name = forced if forced in GRADES else "teal"
     return name, GRADES[name]
 
 
@@ -454,7 +467,25 @@ def gemini_json(prompt, temperature=1.0, images=None):
     raise RuntimeError(f"Gemini failed: {last}")
 
 
-def build_prompt(category, hook_style, recent, notes="", idea=None):
+MODES = {  # name: (words lo, hi, segments, description). Everything stays well under 60 seconds.
+    "quick": (38, 56, "4 to 5", "QUICK TIP: one tiny, useful thing, said fast. Hook, the fix, one real example, a one-line ending. No story, no padding."),
+    "explain": (66, 88, "6 to 7", "EXPLAINER: a small story. Hook, a vivid second-person scene where the mistake costs something, one small twist, the fix, a real example, a short ending."),
+    "funny": (52, 78, "5 to 6", "FUNNY: light, a little cheeky. Exaggerate the mistake with a short imaginary scene and a dry punchline, THEN give the real fix. The joke is never at a person's or a religion's expense, and never crude."),
+    "myth": (56, 80, "5 to 6", "MYTH VS TRUTH: open with something most learners believe, flip it ('Not quite.'), explain why in plain words, give the right version and a real example."),
+    "challenge": (46, 68, "5 to 6", "CHALLENGE: a mini quiz. Ask 'Which one is right?' with two options, give the viewer a beat to think ('Pause for a second.'), reveal the answer, say why in one sentence, one example."),
+    "swap": (44, 66, "5 to 6", "UPGRADE: take a boring everyday word or phrase learners overuse and give two or three better ones, each with a tiny real sentence. A little list, but spoken like a friend, never robotic."),
+}
+
+
+def pick_mode(history):
+    forced = os.getenv("MODE_FORCE", "").strip().lower()
+    if forced in MODES:
+        return forced
+    last = [h.get("mode") for h in history[-2:]]  # never the same style back to back
+    return random.choice([m for m in MODES if m not in last[-1:]] or list(MODES))
+
+
+def build_prompt(category, hook_style, recent, notes="", idea=None, mode="explain"):
     recent_txt = "\n".join(f"- {t}" for t in recent[-120:]) or "- (none yet)"
     greet = (
         f'Begin the very first sentence with exactly: "{GREETING}" and then go straight into the hook.'
@@ -477,6 +508,7 @@ def build_prompt(category, hook_style, recent, notes="", idea=None):
             'Prefer nature, cities, objects, books, desks, keyboards, hands. Never abstract ideas, never text.'
         )
     shape = {
+        "mode": mode,
         "topic": "3-6 word label of the lesson, used to avoid repeats",
         "title": "YouTube title, max 60 characters, makes a learner curious, no lies",
         "pace": "slow | medium | fast | superfast (how an editor would cut this video, see PACE)",
@@ -508,7 +540,11 @@ def build_prompt(category, hook_style, recent, notes="", idea=None):
         "Join beats with 'but' and 'so', never 'and then', so each beat makes the viewer need the next one. "
         f"{cta}"
     )
-    story_block = v2_story if STORY_MODE == "v2" else classic_story
+    wlo, whi, nseg, mdesc = MODES.get(mode, MODES["explain"])
+    story_block = (v2_story if (STORY_MODE == "v2" and mode == "explain") else "") + f"\nVIDEO STYLE TODAY: {mdesc}\n" if STORY_MODE == "v2" else classic_story
+    if STORY_MODE == "v2" and mode != "explain":
+        story_block += ("Whatever the style, the video resolves what the hook opened, and the LAST line echoes the key words of the hook so the replay flows. "
+                        f"Join beats with 'but' and 'so'. {cta}")
     return f"""You write spoken scripts for a YouTube Shorts channel that teaches English to learners around the world (roughly B1-B2 level).
 
 LESSON TYPE TODAY: {category}
@@ -518,6 +554,15 @@ HOOK STYLE TO ADAPT (do not copy it word for word): {hook_style}
 Never repeat or closely resemble these earlier topics:
 {recent_txt}
 {notes}
+WHO IS TALKING
+One calm, warm, slightly witty person talking to one viewer. Never "guys" or "everyone". Never announce what you are about to do ("let me explain"), never say "in this video". Opinionated but kind.
+
+WHAT THE VIEWER GETS
+Every video must leave the viewer able to do something new in their very next conversation: a phrase to copy, a mistake to drop, a trick that works at once. Make that one takeaway obvious and memorable. Give them a reason to come back that is NATURAL and never an ask: e.g. end with a tiny challenge ("Use it once today and see what happens."), or a real hint of what's next ("There's an even politer version, but that's another day."). Never say follow, subscribe, like, share or "for more".
+
+WRITTEN FOR A VOICE (a text-to-speech voice reads this word for word)
+Everything you write is spoken aloud exactly as written. So: no stage directions, no brackets, no "[pause]", no "(laughs)", no instructions about tone, no labels like "Hook:" or "Narrator:". Write pauses with punctuation: a comma is a breath, a full stop is a real pause, "..." a longer one. Short sentences. Quote a word or phrase you are teaching with straight quotes, nothing else in quotes. Spell out numbers, symbols and abbreviations (twenty, percent, for example). Avoid words that are pronounced differently depending on meaning (read, lead, live, wind, tear, bass) unless the sentence makes it obvious. Avoid hard-to-pronounce lists and long parentheses. Make sure each line sounds natural when spoken at a relaxed pace.
+
 HOW IT MUST SOUND
 Write the way a warm, funny friend explains something over coffee, not the way a teacher or textbook talks. Use contractions (you're, it's, don't). Mix very short sentences with slightly longer ones. It's fine to start with "And", "But" or "Look,". Plain everyday words only. One idea per sentence. Imagine reading every line out loud; if it sounds written instead of spoken, rewrite it.
 Never use: "dive in", "delve", "game-changer", "unlock", "elevate", "journey", "in today's video", "welcome back", "let's get started", "buckle up". No emojis, hashtags, stage directions or sound effects inside spoken lines. Write numbers as words.
@@ -529,7 +574,8 @@ THE HOOK (segment 1) - this decides everything
 - Banned openers: "Did you know", "Today we", "Hey guys", "Let's talk about", "In this video". No greeting, no channel name.
 - {greet}
 - No clickbait lies. Never invent statistics, studies or personal stories.
-- Also write "hook_title": 2 or 3 punchy words (max 18 characters) shown huge on screen at the very first frame, e.g. STOP SAYING THIS / WRONG ENGLISH / SOUNDS RUDE.
+- The first words of the hook are put on screen one by one as they are spoken, so build the hook from short, punchy words and make the first four words work on their own, e.g. "Stop saying fine. Say this."
+- Also write "hook_title": 2 or 3 punchy words (max 18 characters), a backup title.
 
 PACE (choose like a video editor who reads the mood of the topic): slow = calm explanations, pronunciation, comfort and confidence topics; medium = most lessons; fast = quizzes, slang, challenges, funny comparisons, texting; superfast = rapid-fire lists, word upgrades, speed drills. Fast and superfast scripts use shorter sentences.
 
@@ -538,7 +584,7 @@ PACE (choose like a video editor who reads the mood of the topic): slow = calm e
 ACCURACY
 Teach only things that are definitely correct and natural in standard English today. If American and British usage differ, say so in one short sentence.
 
-LENGTH: 6 to 7 segments, 70 to 90 spoken words in total. Short and punchy beats thorough.
+LENGTH: {nseg} segments, {wlo} to {whi} spoken words in total (this keeps the video well under one minute). Short and punchy beats thorough.
 
 {visual_rule}
 CARD: optional big on-screen text for the key phrase of that segment, max 5 words, otherwise "". card_kind is "wrong" for an incorrect version, "right" for a correct version, "neutral" otherwise. Use cards on 3 to 5 segments.
@@ -563,7 +609,7 @@ def clean_hook_title(s):
     return text if 1 <= len(words) <= 4 and len(text) <= 22 else ""
 
 
-def validate(lesson):
+def validate(lesson, mode=None):
     segs = lesson.get("segments")
     if not isinstance(segs, list) or not 5 <= len(segs) <= 9:
         raise ValueError("need 5-9 segments")
@@ -582,8 +628,11 @@ def validate(lesson):
             "card_kind": kind,
         })
     words = sum(len(s["say"].split()) for s in clean)
-    if not 60 <= words <= 135:
-        raise ValueError(f"{words} words is outside the 60-135 range")
+    lo, hi = (MODES[mode][0] - 6, MODES[mode][1] + 14) if mode in MODES else (35, 135)
+    if not lo <= words <= hi:
+        raise ValueError(f"{words} words is outside the {lo}-{hi} range for a {mode or 'normal'} video")
+    if re.search(r"\[[^\]]*\]|\([^)]*\)|^\s*(hook|narrator|host|scene)\s*:", " ".join(s["say"] for s in clean), re.I | re.M):
+        raise ValueError("stage directions or brackets in the spoken text")
     spoken = " ".join(s["say"] for s in clean).lower()
     for b in BANNED:
         if b in spoken:
@@ -594,6 +643,7 @@ def validate(lesson):
         tags.append("#Shorts")
     pace = str(lesson.get("pace", "medium")).lower().strip()
     return {
+        "mode": mode or "",
         "pace": pace if pace in PACES else "medium",
         "mood": clean_text(lesson.get("mood"))[:20].lower() or "neutral",
         "topic": clean_text(lesson.get("topic")) or clean_text(lesson.get("title")),
@@ -661,7 +711,7 @@ def sharpen(lesson):
         log(f"editor pass: hook {hook_score:g}/10, ending {loop_score:g}/10" + (f" -> rewriting {', '.join(changed)}" if changed else " -> keeping the script"))
         if not changed:
             return lesson
-        new = validate(new)  # same rules as always (length, banned phrases ...)
+        new = validate(new, lesson.get('mode') or None)  # same rules as always (length, banned phrases ...)
         ok, issues = verify_lesson(new)
         if not ok:
             log(f"editor pass rejected by the teacher check ({issues[:120]}); keeping the original script")
@@ -687,7 +737,9 @@ def ensure_cta(lesson):
 def make_lesson(history):
     recent_cats = [h.get("category") for h in history[-4:]]
     category = random.choice([c for c in CATEGORIES if c not in recent_cats] or CATEGORIES)
-    hook_style = random.choice(HOOK_STYLES)
+    last_hs = [h.get('hook_style') for h in history[-2:]]
+    hook_style = random.choice([x for x in HOOK_STYLES if x not in last_hs] or HOOK_STYLES)
+    mode = pick_mode(history)
     ideas = load_ideas()
     done = {h.get("idea") for h in history if h.get("idea")}
     fresh = [i for i in ideas if i["idea"] not in done] or ideas
@@ -703,7 +755,7 @@ def make_lesson(history):
         category = f"{idea['series']}: {idea['section']}"
         log(f"idea bank: {len(ideas)} ideas; today: {idea['series']} / {idea['idea'][:80]}")
     recent_topics = [h.get("topic", "") for h in history]
-    log(f"lesson type: {category}\nhook style: {hook_style}")
+    log(f"lesson type: {category}\nvideo style: {mode}\nhook style: {hook_style}")
     last_err, notes = None, ""
     for attempt in range(1, 9):
         if time.time() - T0 > 600:  # never let one run drag on
@@ -715,7 +767,7 @@ def make_lesson(history):
                 category = f"{idea['series']}: {idea['section']}"
             log(f"switching lesson type to: {category}")
         try:
-            lesson = validate(gemini_json(build_prompt(category, hook_style, recent_topics, notes, idea)))
+            lesson = validate(gemini_json(build_prompt(category, hook_style, recent_topics, notes, idea, mode)), mode)
             ok, issues = verify_lesson(lesson)
             if not ok:
                 notes = (
@@ -725,6 +777,8 @@ def make_lesson(history):
                 raise ValueError(f"teacher check failed: {issues}")
             lesson = sharpen(lesson)
             lesson["category"] = category
+            lesson["mode"] = mode
+            lesson["hook_style"] = hook_style
             lesson["idea"] = idea["idea"] if idea else ""
             lesson["series"] = idea["series"] if idea else ""
             return lesson
@@ -1491,23 +1545,42 @@ def _norm(w):
     return re.sub(r"[^a-z']", "", str(w).lower())
 
 
+
+def hook_groups(tokens, times, n0, maxw=5):
+    """the opening words as they are SPOKEN: short words join the next one; each group appears when its first word starts"""
+    idx = list(range(min(n0, maxw)))
+    groups, buf = [], []
+    for j in idx:
+        buf.append(j)
+        w = _norm(tokens[j])
+        if len(w) <= 2 and j != idx[-1]:
+            continue
+        groups.append(buf)
+        buf = []
+    if buf:
+        groups.append(buf)
+    out = []
+    for g in groups:
+        txt = " ".join(esc(tokens[j]).replace('"', "").strip(".,!?;:") for j in g).upper()
+        out.append((txt, round(times[g[0]][0], 3)))
+    end = times[idx[-1]][1] if idx else 1.6
+    return out, end
+
+
 def build_cine_spec(lesson, tokens, times, segs, bounds, total, cuts, info):
     """one line of text at eye level: a hook that flashes one word per cut, a key phrase above, curves under the essential words"""
     cuts = list(cuts or [])
-    hb = round(min(max(info.get("burst_end", 2.2), 1.6), 2.8), 3)
-    title = (lesson.get("hook_title") or "").split()[:4] or ["QUICK", "ENGLISH", "TIP"]
-    step = max(0.35, (hb - 0.1) / len(title))
-    hook_cuts = [c for c in cuts if c < hb]
-    ts = []
-    for k in range(len(title)):
-        t0 = 0.05 + k * step
-        near = min(hook_cuts, key=lambda c: abs(c - t0), default=None)
-        if near is not None and abs(near - t0) <= 0.25:
-            t0 = near
-        if ts and t0 < ts[-1] + 0.25:
-            t0 = ts[-1] + 0.25
-        ts.append(round(min(t0, hb - 0.25), 3))
-    hook = {"words": [[w, t] for w, t in zip(title, ts)], "a": 0.05, "b": hb}
+    hb = round(min(max(info.get("burst_end", 2.2), 1.4), 3.6), 3)
+    groups = info.get("hook_groups") or []
+    if groups:
+        ts = []
+        for _, t0 in groups:
+            ts.append(round(max(t0, (ts[-1] + 0.22) if ts else 0.0), 3))
+        title = [g for g, _ in groups]
+    else:
+        title = (lesson.get("hook_title") or "").split()[:4] or ["QUICK", "ENGLISH", "TIP"]
+        ts = [round(0.05 + k * 0.5, 3) for k in range(len(title))]
+    hook = {"words": [[w, t] for w, t in zip(title, ts)], "a": 0.0, "b": hb}
 
     # tokens of each segment, and the words of its key phrase (they get a drawn curve in the captions)
     key, pos = set(), 0
@@ -1561,22 +1634,14 @@ def build_cine_spec(lesson, tokens, times, segs, bounds, total, cuts, info):
 
 
 def sfx_events_cine(spec):
-    """a shutter-like tick on each burst cut, a quiet swish on later cuts, a soft hit as the slow motion starts"""
-    ev = [(0.05, "whoosh"), (0.18, "hit")]
+    """sparse and quiet: one soft low impact at the start, one air-swell into the content, a whoosh into slow motion, a bell for the right answer"""
     hb = spec["burst_end"]
-    for i, t in enumerate(spec["cuts"]):
-        if t < hb:
-            ev.append((t - 0.02, "tick"))
-        else:
-            ev.append((t - 0.05, "swish"))
+    ev = [(0.0, "hit"), (max(0.1, hb - 0.45), "air")]
     for a, _ in spec["slow"]:
-        ev.append((a - 0.02, "hit"))
+        ev.append((a - 0.3, "air"))
     for c in spec["cards"]:
-        ev.append((c["a"] + 0.05, "pop"))
-        if c["kind"] == "wrong":
-            ev.append((c["a"] + 0.8, "click"))
-        elif c["kind"] == "right":
-            ev.append((c["a"] + 0.6, "ding"))
+        if c["kind"] == "right":
+            ev.append((c["a"] + 0.5, "ding"))
     return sorted((round(t, 3), k) for t, k in ev if 0 <= t < spec["total"])
 
 
@@ -1774,8 +1839,9 @@ def main():
     globals()["PRO_CAMERA"] = style in ("pro", "cine")
     globals()["CINE"] = style == "cine"
     if style == "cine":
-        grade_name, grade_chain = pick_grade(lesson.get("mood"))
+        grade_name, grade_chain = pick_grade(lesson.get("mood"), next((h.get("grade") for h in reversed(history) if h.get("grade")), None))
         globals()["GRADE_CHAIN"] = grade_chain
+        globals()["GRADE_NAME"] = grade_name
         log(f"colour grade: {grade_name}")
     if style in ("pro", "cine"):
         pace = {**pace, "cut": pace["cut"] * 0.8}  # more cuts
@@ -1793,6 +1859,14 @@ def main():
         spoken = text
         wb, sents = make_voice(text, spoken, voice_path)  # the voice says SPOKEN_NAME; captions keep the real spelling
     audio_dur = probe_duration(voice_path)
+    if audio_dur > 56.5 and not args.offline_test:  # a Short must never reach one minute: say it faster
+        for fast in ("+12%", "+20%"):
+            log(f"voice is {audio_dur:.1f}s - too long, speaking faster ({fast})")
+            globals()["VOICE_RATE"] = fast
+            wb, sents = make_voice(text, text, voice_path)
+            audio_dur = probe_duration(voice_path)
+            if audio_dur <= 56.5:
+                break
     total = q(audio_dur + 0.6)
     times = align(tokens, wb, audio_dur, sents)
 
@@ -1804,21 +1878,33 @@ def main():
     bounds = [(starts[i], starts[i + 1] if i + 1 < len(starts) else total) for i in range(len(segs))]
 
     # the editor cuts each segment into shots; faster pace = shorter shots (capped so footage checks stay cheap)
-    shots, opts, burst_end, burst_count = [], {}, 0.0, 0
+    shots, opts, burst_end, burst_count, hgs = [], {}, 0.0, 0, []
     if style == "cine":
         # the first seconds: very fast cuts of natural footage. Half as many clips are fetched; the rest are
         # the same clips again (mirrored, from another moment), so the footage checks stay cheap.
         a0, b0 = bounds[0]
-        burst_end = min(b0, 2.6)
-        n = max(3, min(7, int(round(burst_end / 0.42))))
-        m = (n + 1) // 2
-        pools = [random.sample(NATURE_DARK, len(NATURE_DARK)), random.sample(NATURE_LIGHT, len(NATURE_LIGHT))]  # dark and bright take turns
-        qs = [pools[j % 2].pop() for j in range(m)]
+        n0 = len(segs[0]["say"].split())
+        hook_groups_ = hook_groups(tokens, times, n0)
+        hgs, hend = hook_groups_
+        burst_end = min(b0, max(1.6, min(3.4, hend + 0.12)))
+        cuts_b = [0.0]
+        for _, t0 in hgs[1:]:  # every cut lands on a word that is being spoken
+            if t0 - cuts_b[-1] >= 0.3 and burst_end - t0 >= 0.3:
+                cuts_b.append(t0)
+        while len(cuts_b) < 3:  # too few words: split the longest stretch in half
+            edges = cuts_b + [burst_end]
+            k = max(range(len(cuts_b)), key=lambda x: edges[x + 1] - edges[x])
+            cuts_b.insert(k + 1, (edges[k] + edges[k + 1]) / 2)
+        edges = cuts_b + [burst_end]
+        n = len(cuts_b)
+        pool = random.sample(NATURE_DARK, len(NATURE_DARK)) + random.sample(NATURE_LIGHT, len(NATURE_LIGHT))
+        qs, seen = [], set()
+        for j in range(n):  # dark and bright take turns, and no clip is used twice in the burst
+            src_pool = NATURE_DARK if j % 2 == 0 else NATURE_LIGHT
+            cand = [x for x in random.sample(src_pool, len(src_pool)) if x not in seen] or [x for x in pool if x not in seen] or pool
+            seen.add(cand[0]); qs.append(cand[0])
         for j in range(n):
-            ta, tb = a0 + burst_end * j / n, a0 + burst_end * (j + 1) / n
-            shots.append((qs[j % m], ta, tb))
-            if j >= m:
-                opts[j] = {"reuse": j - m, "flip": True}
+            shots.append((qs[j], edges[j], edges[j + 1]))
         if b0 - burst_end > 0.8:
             shots.append((segs[0]["visual"], burst_end, b0))
         elif b0 > burst_end:
@@ -1880,7 +1966,7 @@ def main():
                 import motion
 
                 spec = build_motion_spec(lesson, tokens, times, segs, bounds, total, [a for _, a, _ in shots[1:]], st,
-                                         {"burst_end": burst_end, "slow": slow_spans})
+                                         {"burst_end": burst_end, "slow": slow_spans, "hook_groups": hgs if style == "cine" else []})
                 problems, _ = motion.check_layout(spec, WORK / "motion_check", FONTS_DIR, step=0.1)
                 if problems:
                     log("motion layout check:", problems[:6])
@@ -1918,7 +2004,7 @@ def main():
         vid = upload_youtube(final, lesson)
         log(f"uploaded: https://youtube.com/shorts/{vid}  ({YT_PRIVACY})")
 
-    history.append({"date": date.today().isoformat(), "topic": lesson["topic"], "title": lesson["title"], "category": lesson.get("category", ""), "idea": lesson.get("idea", ""), "series": lesson.get("series", ""), "clips": list(ACCEPTED)})
+    history.append({"date": date.today().isoformat(), "topic": lesson["topic"], "title": lesson["title"], "category": lesson.get("category", ""), "idea": lesson.get("idea", ""), "series": lesson.get("series", ""), "clips": list(ACCEPTED), "mode": lesson.get("mode", ""), "hook_style": lesson.get("hook_style", ""), "grade": globals().get("GRADE_NAME", "")})
     save_history(history)
 
 

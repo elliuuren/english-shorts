@@ -27,6 +27,11 @@ def whoosh(d=0.7, vol=0.5):
     return vol * y / (np.max(np.abs(y)) + 1e-9)
 
 
+def air():
+    """a soft swell of filtered air that opens up and closes again"""
+    return whoosh(0.55, 0.22)
+
+
 def swish():
     return whoosh(0.22, 0.28)
 
@@ -41,7 +46,7 @@ def hit():
     att = np.zeros(n)
     att[:k] = _lp(_noise(k), 0.35) * np.exp(-np.arange(k) / (0.008 * SR))
     y = 0.85 * thump + 0.5 * att
-    return 0.8 * y / (np.max(np.abs(y)) + 1e-9)
+    return 0.55 * y / (np.max(np.abs(y)) + 1e-9)
 
 
 def tick(i=0):
@@ -87,7 +92,7 @@ def thud():
     return 0.55 * y
 
 
-SOUNDS = {"whoosh": whoosh, "swish": swish, "hit": hit, "pop": pop, "click": click, "ding": ding, "thud": thud,
+SOUNDS = {"whoosh": whoosh, "swish": swish, "hit": hit, "pop": pop, "click": click, "ding": ding, "thud": thud, "air": air,
           "chime": ding, "error": thud}
 
 
@@ -109,5 +114,5 @@ def make_track(events, total, path):
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(SR)
-        w.writeframes((out * 32767 * 0.9).astype(np.int16).tobytes())
+        w.writeframes((out * 32767 * 0.6).astype(np.int16).tobytes())
     return path

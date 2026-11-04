@@ -54,13 +54,13 @@ if(hook){
   hook.words.forEach(([w,t],i)=>{
     const box=el('div','position:absolute;left:50%;top:'+EYE+'px;transform:translate(-50%,-50%);white-space:nowrap;opacity:0',stage);
     const last=i===hook.words.length-1;
-    const sp=el('span','position:relative;display:inline-block;font-family:var(--disp);letter-spacing:4px;line-height:1.05;text-shadow:0 6px 30px rgba(0,0,0,.55);color:'+(last?GOLDC:'#fff'),box,w);
+    const sp=el('span','position:relative;display:inline-block;font-family:var(--serif);font-weight:700;letter-spacing:6px;line-height:1.05;text-shadow:0 6px 34px rgba(0,0,0,.6);color:'+(last?GOLDC:'#fff'),box,w);
     let cv=null;
     if(last){cv=curve(GOLDC,SWOOSH,7,'left:-3%;width:106%;bottom:-.16em;height:.2em',sp);sp.appendChild(cv.svg);}
     hw.push({box,sp,cv,t,end:i+1<hook.words.length?hook.words[i+1][1]:hook.b,last});
   });
 }
-function fitHook(){hw.forEach(o=>{let fs=150;o.sp.style.fontSize=fs+'px';const w=o.sp.scrollWidth;if(w>MAXW){fs=Math.floor(fs*MAXW/w);o.sp.style.fontSize=fs+'px';}});}
+function fitHook(){hw.forEach(o=>{let fs=132;o.sp.style.fontSize=fs+'px';const w=o.sp.scrollWidth;if(w>MAXW){fs=Math.floor(fs*MAXW/w);o.sp.style.fontSize=fs+'px';}});}
 function tickHook(t){
   hw.forEach(o=>{
     const vis=t>=o.t&&t<o.end;
@@ -80,13 +80,13 @@ const cards=D.cards.map(c=>{
   const box=el('div','position:absolute;left:50%;top:'+CARDY+'px;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;opacity:0',stage);
   const lab=el('div','font-size:26px;letter-spacing:9px;font-weight:700;color:'+K.c+';opacity:.9;margin-bottom:16px',box,K.label);
   const row=el('div','position:relative;display:inline-block',box);
-  const ph=el('div','position:relative;display:inline-block;font-weight:700;letter-spacing:-1px;line-height:1.1;text-shadow:0 4px 22px rgba(0,0,0,.6);color:'+(c.kind==='wrong'?'rgba(255,255,255,.92)':'#fff'),row,c.text);
+  const ph=el('div','position:relative;display:inline-block;font-family:var(--serif);font-weight:700;letter-spacing:0;line-height:1.1;text-shadow:0 4px 22px rgba(0,0,0,.6);color:'+(c.kind==='wrong'?'rgba(255,255,255,.92)':'#fff'),row,c.text);
   const cv=c.kind==='wrong'?curve(REDC,SCRIBBLE,7,'left:-4%;width:108%;top:46%;height:.22em',ph)
                            :curve(GOLDC,SWOOSH,7,'left:-2%;width:104%;bottom:-.2em;height:.2em',ph);
   ph.appendChild(cv.svg);
   return {c,K,box,lab,ph,cv};
 });
-function fitCards(){cards.forEach(o=>{let fs=78;o.ph.style.fontSize=fs+'px';const w=o.ph.scrollWidth;if(w>MAXW-40){fs=Math.max(40,Math.floor(fs*(MAXW-40)/w));o.ph.style.fontSize=fs+'px';}});}
+function fitCards(){cards.forEach(o=>{let fs=72;o.ph.style.fontSize=fs+'px';const w=o.ph.scrollWidth;if(w>MAXW-40){fs=Math.max(40,Math.floor(fs*(MAXW-40)/w));o.ph.style.fontSize=fs+'px';}});}
 function tickCard(o,t){
   const c=o.c;
   if(t<c.a||t>c.b+.02){o.box.style.opacity=0;return;}
