@@ -409,5 +409,26 @@
     "mode": "challenge",
     "hook_style": "a direct question the viewer cannot help answering in their head",
     "grade": "steel_blue"
+  },
+  {
+    "date": "2026-11-05",
+    "topic": "Generous vs Kind difference",
+    "title": "Generous vs Kind: Don't Make This Mistake!",
+    "category": "500 — What's the Difference: Personality Traits",
+    "idea": "Generous vs Kind",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:34608",
+      "pixabay:234930",
+      "pixabay:12779",
+      "pixabay:65672",
+      "pixabay:36753",
+      "pixabay:383541",
+      "pixabay:84916",
+      "pixabay:3158"
+    ],
+    "mode": "swap",
+    "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
+    "grade": "teal_orange"
   }
 ]
