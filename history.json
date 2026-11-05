@@ -386,5 +386,28 @@
     "mode": "explain",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "midnight"
+  },
+  {
+    "date": "2026-11-05",
+    "topic": "Upgrade very thirsty to parched",
+    "title": "Stop saying very thirsty in English",
+    "category": "100 — Say It Better: Format: \"very tired\" → \"exhausted\"",
+    "idea": "very thirsty → parched",
+    "series": "100 — Say It Better",
+    "clips": [
+      "pixabay:59535",
+      "pixabay:2142",
+      "pixabay:129634",
+      "pixabay:130",
+      "pixabay:84910",
+      "pixabay:325636",
+      "pixabay:255498",
+      "pixabay:154726",
+      "pixabay:112722",
+      "pixabay:203449"
+    ],
+    "mode": "challenge",
+    "hook_style": "a direct question the viewer cannot help answering in their head",
+    "grade": "steel_blue"
   }
 ]
