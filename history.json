@@ -474,5 +474,26 @@
     "mode": "explain",
     "hook_style": "'Stop saying X, say this instead'",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-06",
+    "topic": "Bangla loanwords English meanings",
+    "title": "Bengali speakers are misusing these English words",
+    "category": "100 — Bengali meaning: (Loanwords we use daily in Bangla with a different/wrong meaning than real English)",
+    "idea": "Fit, Fresh, Smart, Cool, Sharp — appearance words we misapply",
+    "series": "100 — Bengali meaning",
+    "clips": [
+      "pixabay:251644",
+      "pixabay:204276",
+      "pixabay:317874",
+      "pixabay:4938",
+      "pixabay:44503",
+      "pixabay:278421",
+      "pixabay:112678",
+      "pixabay:129723"
+    ],
+    "mode": "swap",
+    "hook_style": "challenge a belief ('your teacher never told you this about ...')",
+    "grade": "faded_film"
   }
 ]
