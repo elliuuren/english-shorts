@@ -495,5 +495,27 @@
     "mode": "swap",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-06",
+    "topic": "Salary vs Wage difference",
+    "title": "Salary vs Wage: Do You Know the Difference?",
+    "category": "500 — What's the Difference: Money & Shopping",
+    "idea": "Salary vs Wage",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:374783",
+      "pixabay:366273",
+      "pixabay:53312",
+      "pixabay:191518",
+      "pixabay:61621",
+      "pixabay:136740",
+      "pixabay:4947",
+      "pixabay:267",
+      "pixabay:149935"
+    ],
+    "mode": "quick",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "moody_green"
   }
 ]
