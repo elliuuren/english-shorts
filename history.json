@@ -517,5 +517,28 @@
     "mode": "quick",
     "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
     "grade": "moody_green"
+  },
+  {
+    "date": "2026-11-06",
+    "topic": "Shopping: Bill or Receipt",
+    "title": "Shop Smarter: Stop Saying 'Bill' at the Store!",
+    "category": "500 — Speak English Faster: Shopping English",
+    "idea": "Quiz: shopping vocabulary",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:123603",
+      "pixabay:124029",
+      "pixabay:247945",
+      "pixabay:3735",
+      "pixabay:138497",
+      "pixabay:53707",
+      "pixabay:28376",
+      "pixabay:38057",
+      "pixabay:20458",
+      "pixabay:47603"
+    ],
+    "mode": "challenge",
+    "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
+    "grade": "golden_hour"
   }
 ]
