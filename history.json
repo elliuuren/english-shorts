@@ -540,5 +540,28 @@
     "mode": "challenge",
     "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-07",
+    "topic": "Expressing empathy in English",
+    "title": "How to Show Real Empathy in English",
+    "category": "500 — English Lesson: Emotional Expressions",
+    "idea": "Expressing empathy",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:8756",
+      "pixabay:2625",
+      "pixabay:131802",
+      "pixabay:214938",
+      "pixabay:10885",
+      "pixabay:790",
+      "pixabay:122809",
+      "pixabay:31806",
+      "pixabay:44192",
+      "pixabay:181916"
+    ],
+    "mode": "myth",
+    "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
+    "grade": "moody_green"
   }
 ]
