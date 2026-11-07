@@ -583,5 +583,29 @@
     "mode": "quick",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-07",
+    "topic": "Coriander UK vs Cilantro US",
+    "title": "Cilantro vs Coriander: The Food Mix-Up",
+    "category": "100 — British vs American: Vocabulary — Food",
+    "idea": "Coriander (UK) vs Cilantro (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:373322",
+      "pixabay:325597",
+      "pixabay:212725",
+      "pixabay:11634",
+      "pixabay:307864",
+      "pixabay:42420",
+      "pixabay:7016",
+      "pixabay:20765",
+      "pixabay:72929",
+      "pixabay:136609",
+      "pixabay:159393"
+    ],
+    "mode": "funny",
+    "hook_style": "challenge a belief ('your teacher never told you this about ...')",
+    "grade": "faded_film"
   }
 ]
