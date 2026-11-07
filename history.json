@@ -563,5 +563,25 @@
     "mode": "myth",
     "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
     "grade": "moody_green"
+  },
+  {
+    "date": "2026-11-07",
+    "topic": "A lot versus Many quantities",
+    "title": "A Lot vs Many: Stop Mixing Them Up",
+    "category": "500 — What's the Difference: Numbers & Quantities",
+    "idea": "A lot vs Many",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:114900",
+      "pixabay:251704",
+      "pixabay:201671",
+      "pixabay:183136",
+      "pixabay:201528",
+      "pixabay:84007",
+      "pixabay:3595"
+    ],
+    "mode": "quick",
+    "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
+    "grade": "golden_hour"
   }
 ]
