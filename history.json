@@ -628,5 +628,29 @@
     "mode": "swap",
     "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-07",
+    "topic": "A vs The grammar",
+    "title": "A vs The: The Tiny Word That Confuses Everyone",
+    "category": "500 — What's the Difference: Grammar Confusions Made Simple",
+    "idea": "A vs The",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:144855",
+      "pixabay:218990",
+      "pixabay:74388",
+      "pixabay:236256",
+      "pixabay:45358",
+      "pixabay:85379",
+      "pixabay:846",
+      "pixabay:27445",
+      "pixabay:185092",
+      "pixabay:261421",
+      "pixabay:136688"
+    ],
+    "mode": "explain",
+    "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
+    "grade": "faded_film"
   }
 ]
