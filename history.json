@@ -607,5 +607,26 @@
     "mode": "funny",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-07",
+    "topic": "Complimenting food at a gathering",
+    "title": "Better Ways to Compliment Food in English",
+    "category": "500 — English Lesson: Small Talk Starters",
+    "idea": "Complimenting food at a gathering",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:190331",
+      "pixabay:226681",
+      "pixabay:248156",
+      "pixabay:11670",
+      "pixabay:11124",
+      "pixabay:11618",
+      "pixabay:1190",
+      "pixabay:44575"
+    ],
+    "mode": "swap",
+    "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
+    "grade": "teal_orange"
   }
 ]
