@@ -694,5 +694,28 @@
     "mode": "swap",
     "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
     "grade": "steel_blue"
+  },
+  {
+    "date": "2026-11-08",
+    "topic": "Loo vs Bathroom US UK",
+    "title": "Loo or Bathroom? Don't Make This Mistake in the UK",
+    "category": "100 — British vs American: Vocabulary — Home & Buildings",
+    "idea": "Loo/Toilet (UK) vs Bathroom/Restroom (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:10745",
+      "pixabay:13456",
+      "pixabay:268030",
+      "pixabay:152183",
+      "pixabay:301721",
+      "pixabay:47876",
+      "pixabay:231177",
+      "pixabay:122873",
+      "pixabay:348057",
+      "pixabay:63574"
+    ],
+    "mode": "explain",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "teal_orange"
   }
 ]
