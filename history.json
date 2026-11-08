@@ -674,5 +674,25 @@
     "mode": "funny",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-08",
+    "topic": "Make vs Do difference",
+    "title": "Make vs Do: Stop Making This Common Mistake",
+    "category": "500 — English Lesson: Confusing Word Pairs",
+    "idea": "Make vs Do",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:90048",
+      "pixabay:9734",
+      "pixabay:226529",
+      "pixabay:135489",
+      "pixabay:146436",
+      "pixabay:7649",
+      "pixabay:12866"
+    ],
+    "mode": "swap",
+    "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
+    "grade": "steel_blue"
   }
 ]
