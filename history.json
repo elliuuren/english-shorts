@@ -811,5 +811,28 @@
     "mode": "swap",
     "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
     "grade": "midnight"
+  },
+  {
+    "date": "2026-11-09",
+    "topic": "fascinating vs fascinated difference",
+    "title": "Fascinating or Fascinated? The Easy Rule",
+    "category": "500 — What's the Difference: Common Confusions in Speech",
+    "idea": "\"It's fascinating\" vs \"I'm fascinated\"",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:122496",
+      "pixabay:212993",
+      "pixabay:251262",
+      "pixabay:26452",
+      "pixabay:199127",
+      "pixabay:82042",
+      "pixabay:38918",
+      "pixabay:152265",
+      "pixabay:41121",
+      "pixabay:2793"
+    ],
+    "mode": "explain",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "steel_blue"
   }
 ]
