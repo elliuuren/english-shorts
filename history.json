@@ -789,5 +789,27 @@
     "mode": "quick",
     "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-09",
+    "topic": "good name mistake in english",
+    "title": "Why You Should Stop Saying 'What Is Your Good Name?'",
+    "category": "500 — English Lesson: Common Errors by Bangla Speakers",
+    "idea": "\"What is your good name?\"",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:47432",
+      "pixabay:205589",
+      "pixabay:111327",
+      "pixabay:84878",
+      "pixabay:126805",
+      "pixabay:128124",
+      "pixabay:37006",
+      "pixabay:292363",
+      "pixabay:134080"
+    ],
+    "mode": "swap",
+    "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
+    "grade": "midnight"
   }
 ]
