@@ -768,5 +768,26 @@
     "mode": "funny",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-09",
+    "topic": "hotel reservation nights check in",
+    "title": "How to Book a Hotel Room in English",
+    "category": "500 — Speak English Faster: Roleplay Scenarios for Practice",
+    "idea": "Roleplay: making a hotel reservation",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:209892",
+      "pixabay:62390",
+      "pixabay:105584",
+      "pixabay:188892",
+      "pixabay:128010",
+      "pixabay:133318",
+      "pixabay:15604",
+      "pixabay:127484"
+    ],
+    "mode": "quick",
+    "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
+    "grade": "faded_film"
   }
 ]
