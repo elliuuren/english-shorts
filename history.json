@@ -874,5 +874,27 @@
     "mode": "challenge",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "steel_blue"
+  },
+  {
+    "date": "2026-11-10",
+    "topic": "Vitamin Pronunciation UK US",
+    "title": "Vitamin: Two Ways to Say It",
+    "category": "100 — British vs American: Pronunciation Differences",
+    "idea": "\"Vitamin\" — VIT-uh-min (UK) vs VYE-tuh-min (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:192568",
+      "pixabay:330261",
+      "pixabay:232408",
+      "pixabay:24515",
+      "pixabay:15979",
+      "pixabay:30289",
+      "pixabay:276973",
+      "pixabay:19999",
+      "pixabay:6974"
+    ],
+    "mode": "myth",
+    "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
+    "grade": "faded_film"
   }
 ]
