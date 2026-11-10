@@ -896,5 +896,27 @@
     "mode": "myth",
     "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-10",
+    "topic": "Fat vs Overweight polite alternatives",
+    "title": "Stop saying fat in English",
+    "category": "500 — What's the Difference: Clothes & Appearance",
+    "idea": "Fat vs Overweight (polite alternatives)",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:220161",
+      "pixabay:284562",
+      "pixabay:124291",
+      "pixabay:1631",
+      "pixabay:43295",
+      "pixabay:220140",
+      "pixabay:1917",
+      "pixabay:168313",
+      "pixabay:255501"
+    ],
+    "mode": "explain",
+    "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
+    "grade": "midnight"
   }
 ]
