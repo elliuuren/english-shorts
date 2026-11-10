@@ -853,5 +853,26 @@
     "mode": "quick",
     "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
     "grade": "moody_green"
+  },
+  {
+    "date": "2026-11-10",
+    "topic": "Collocation: Make an effort",
+    "title": "Stop Saying 'Do an Effort': Master 'Make an Effort'",
+    "category": "500 — English Lesson: Common Collocations",
+    "idea": "\"Make an effort\"",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:132204",
+      "pixabay:37",
+      "pixabay:258799",
+      "pixabay:120529",
+      "pixabay:3158",
+      "pixabay:44791",
+      "pixabay:2802",
+      "pixabay:63535"
+    ],
+    "mode": "challenge",
+    "hook_style": "challenge a belief ('your teacher never told you this about ...')",
+    "grade": "steel_blue"
   }
 ]
