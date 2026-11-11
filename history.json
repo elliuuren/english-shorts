@@ -964,5 +964,28 @@
     "mode": "swap",
     "hook_style": "a direct question the viewer cannot help answering in their head",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-11",
+    "topic": "British vs American food vocabulary",
+    "title": "Stop Ordering This Drink in the UK!",
+    "category": "100 — British vs American: Vocabulary — Food",
+    "idea": "Fizzy drink (UK) vs Soda/Pop (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:16802",
+      "pixabay:22582",
+      "pixabay:25589",
+      "pixabay:250624",
+      "pixabay:6455",
+      "pixabay:46989",
+      "pixabay:209419",
+      "pixabay:95",
+      "pixabay:126800",
+      "pixabay:2542"
+    ],
+    "mode": "myth",
+    "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
+    "grade": "golden_hour"
   }
 ]
