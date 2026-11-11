@@ -941,5 +941,28 @@
     "mode": "funny",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-11",
+    "topic": "Using flashback structure in speech",
+    "title": "How to Jump Back in Time When Telling a Story",
+    "category": "500 — English Lesson: Storytelling in English",
+    "idea": "Using flashback structure in speech",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:225000",
+      "pixabay:38128",
+      "pixabay:47872",
+      "pixabay:146761",
+      "pixabay:329461",
+      "pixabay:22354",
+      "pixabay:2165",
+      "pixabay:203681",
+      "pixabay:131588",
+      "pixabay:15052"
+    ],
+    "mode": "swap",
+    "hook_style": "a direct question the viewer cannot help answering in their head",
+    "grade": "teal_orange"
   }
 ]
