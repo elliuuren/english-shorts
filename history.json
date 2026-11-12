@@ -1033,5 +1033,27 @@
     "mode": "funny",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-12",
+    "topic": "Comforting someone in English",
+    "title": "How to Comfort a Friend in English",
+    "category": "500 — English Lesson: Emotional Expressions",
+    "idea": "Comforting someone in English",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:23832",
+      "pixabay:251704",
+      "pixabay:30218",
+      "pixabay:59291",
+      "pixabay:123895",
+      "pixabay:236256",
+      "pixabay:3910",
+      "pixabay:230248",
+      "pixabay:31806"
+    ],
+    "mode": "challenge",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "moody_green"
   }
 ]
