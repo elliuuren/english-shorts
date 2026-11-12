@@ -987,5 +987,28 @@
     "mode": "myth",
     "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-12",
+    "topic": "I'm tiring vs I'm tired difference",
+    "title": "I'm tiring or I'm tired? The secret difference",
+    "category": "500 — What's the Difference: Common Confusions in Speech",
+    "idea": "\"I'm tiring\" vs \"I'm tired\"",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:283737",
+      "pixabay:211366",
+      "pixabay:16495",
+      "pixabay:50803",
+      "pixabay:11414",
+      "pixabay:148148",
+      "pixabay:145507",
+      "pixabay:84906",
+      "pixabay:63338",
+      "pixabay:111263"
+    ],
+    "mode": "explain",
+    "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
+    "grade": "steel_blue"
   }
 ]
