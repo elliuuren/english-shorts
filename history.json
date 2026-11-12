@@ -1055,5 +1055,26 @@
     "mode": "challenge",
     "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
     "grade": "moody_green"
+  },
+  {
+    "date": "2026-11-12",
+    "topic": "Boss versus CEO",
+    "title": "Is your boss the CEO?",
+    "category": "500 — What's the Difference: Work & School",
+    "idea": "Boss vs CEO",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:173330",
+      "pixabay:205422",
+      "pixabay:28236",
+      "pixabay:846",
+      "pixabay:368458",
+      "pixabay:137113",
+      "pixabay:19247",
+      "pixabay:238826"
+    ],
+    "mode": "funny",
+    "hook_style": "a direct question the viewer cannot help answering in their head",
+    "grade": "golden_hour"
   }
 ]
