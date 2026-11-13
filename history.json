@@ -1123,5 +1123,27 @@
     "mode": "funny",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-13",
+    "topic": "fast who question contractions",
+    "title": "Speak English Faster with Simple 'Who' Questions",
+    "category": "500 — Speak English Faster: Common Question Words in Action",
+    "idea": "\"Who\" — 10 beginner questions",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:90998",
+      "pixabay:343969",
+      "pixabay:84910",
+      "pixabay:144362",
+      "pixabay:4947",
+      "pixabay:219130",
+      "pixabay:27230",
+      "pixabay:204564",
+      "pixabay:271765"
+    ],
+    "mode": "swap",
+    "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
+    "grade": "midnight"
   }
 ]
