@@ -1145,5 +1145,27 @@
     "mode": "swap",
     "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
     "grade": "midnight"
+  },
+  {
+    "date": "2026-11-13",
+    "topic": "Teacher vs Professor distinction",
+    "title": "Teacher vs Professor: Stop Making This Mistake!",
+    "category": "500 — What's the Difference: Work & School",
+    "idea": "Teacher vs Professor",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:189692",
+      "pixabay:348057",
+      "pixabay:85180",
+      "pixabay:172759",
+      "pixabay:272511",
+      "pixabay:19565",
+      "pixabay:122",
+      "pixabay:4938",
+      "pixabay:3735"
+    ],
+    "mode": "funny",
+    "hook_style": "'Stop saying X, say this instead'",
+    "grade": "teal_orange"
   }
 ]
