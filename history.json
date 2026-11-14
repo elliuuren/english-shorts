@@ -1211,5 +1211,24 @@
     "mode": "explain",
     "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-14",
+    "topic": "very busy to swamped",
+    "title": "Upgrade Your English: Say This Instead of Very Busy",
+    "category": "100 — Say It Better: Format: \"very tired\" → \"exhausted\"",
+    "idea": "very busy → swamped",
+    "series": "100 — Say It Better",
+    "clips": [
+      "pixabay:150111",
+      "pixabay:2099",
+      "pixabay:3899",
+      "pixabay:11066",
+      "pixabay:28837",
+      "pixabay:26452"
+    ],
+    "mode": "quick",
+    "hook_style": "'Stop saying X, say this instead'",
+    "grade": "faded_film"
   }
 ]
