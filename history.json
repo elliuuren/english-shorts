@@ -1167,5 +1167,27 @@
     "mode": "funny",
     "hook_style": "'Stop saying X, say this instead'",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-14",
+    "topic": "Empathy intonation and pitch drop",
+    "title": "Why Your Tone Sounds Cold in English",
+    "category": "500 — English Lesson: Word Stress & Intonation",
+    "idea": "Intonation for showing empathy",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:33771",
+      "pixabay:140186",
+      "pixabay:11175",
+      "pixabay:17013",
+      "pixabay:34",
+      "pixabay:15629",
+      "pixabay:324051",
+      "pixabay:14385",
+      "pixabay:278421"
+    ],
+    "mode": "myth",
+    "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
+    "grade": "moody_green"
   }
 ]
