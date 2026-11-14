@@ -1251,5 +1251,30 @@
     "mode": "swap",
     "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
     "grade": "moody_green"
+  },
+  {
+    "date": "2026-11-14",
+    "topic": "Speaking Progress Tracking",
+    "title": "See Your Speaking Progress Clearly",
+    "category": "500 — Speak English Faster: Speaking Drills & Challenges",
+    "idea": "Record and compare — week 1 vs week 4",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:98795",
+      "pixabay:294617",
+      "pixabay:364656",
+      "pixabay:263199",
+      "pixabay:65390",
+      "pixabay:287391",
+      "pixabay:27465",
+      "pixabay:19368",
+      "pixabay:348904",
+      "pixabay:21852",
+      "pixabay:4451",
+      "pixabay:228088"
+    ],
+    "mode": "funny",
+    "hook_style": "challenge a belief ('your teacher never told you this about ...')",
+    "grade": "golden_hour"
   }
 ]
