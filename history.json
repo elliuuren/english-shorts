@@ -1230,5 +1230,26 @@
     "mode": "quick",
     "hook_style": "'Stop saying X, say this instead'",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-14",
+    "topic": "Country vs. Nation difference",
+    "title": "Country or Nation? The subtle difference!",
+    "category": "500 — What's the Difference: Places & Travel",
+    "idea": "Country vs Nation",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:375339",
+      "pixabay:369496",
+      "pixabay:39786",
+      "pixabay:29722",
+      "pixabay:30094",
+      "pixabay:310874",
+      "pixabay:319751",
+      "pixabay:13997"
+    ],
+    "mode": "swap",
+    "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
+    "grade": "moody_green"
   }
 ]
