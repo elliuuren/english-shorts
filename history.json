@@ -1276,5 +1276,29 @@
     "mode": "funny",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-15",
+    "topic": "low key high key slang",
+    "title": "What Do Low-Key and High-Key Actually Mean?",
+    "category": "500 — English Lesson: Slang & Informal English",
+    "idea": "\"Low-key / high-key\"",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:12214",
+      "pixabay:142399",
+      "pixabay:227318",
+      "pixabay:179207",
+      "pixabay:199127",
+      "pixabay:126431",
+      "pixabay:126805",
+      "pixabay:66823",
+      "pixabay:1191",
+      "pixabay:112429",
+      "pixabay:73430"
+    ],
+    "mode": "explain",
+    "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
+    "grade": "teal_orange"
   }
 ]
