@@ -1300,5 +1300,27 @@
     "mode": "explain",
     "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-15",
+    "topic": "Season vs weather difference",
+    "title": "Weather vs Season: Don't Mix These Up!",
+    "category": "500 — What's the Difference: Weather & Nature",
+    "idea": "Season vs Weather (mix-up)",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:220161",
+      "pixabay:245681",
+      "pixabay:181014",
+      "pixabay:205589",
+      "pixabay:129402",
+      "pixabay:103891",
+      "pixabay:211647",
+      "pixabay:4882",
+      "pixabay:110939"
+    ],
+    "mode": "swap",
+    "hook_style": "a direct question the viewer cannot help answering in their head",
+    "grade": "steel_blue"
   }
 ]
