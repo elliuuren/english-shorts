@@ -1344,5 +1344,28 @@
     "mode": "challenge",
     "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
     "grade": "midnight"
+  },
+  {
+    "date": "2026-11-15",
+    "topic": "idiom break the ice",
+    "title": "What 'Break the Ice' Really Means",
+    "category": "500 — English Lesson: Idioms & Expressions",
+    "idea": "\"Break the ice\"",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:190331",
+      "pixabay:366273",
+      "pixabay:10746",
+      "pixabay:267",
+      "pixabay:53835",
+      "pixabay:147914",
+      "pixabay:277116",
+      "pixabay:3158",
+      "pixabay:255501",
+      "pixabay:250676"
+    ],
+    "mode": "explain",
+    "hook_style": "challenge a belief ('your teacher never told you this about ...')",
+    "grade": "faded_film"
   }
 ]
