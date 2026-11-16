@@ -1410,5 +1410,24 @@
     "mode": "funny",
     "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-16",
+    "topic": "Windscreen vs Windshield UK US",
+    "title": "Windscreen or Windshield in English?",
+    "category": "100 — British vs American: Vocabulary — Transport",
+    "idea": "Windscreen (UK) vs Windshield (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:170756",
+      "pixabay:35615",
+      "pixabay:90048",
+      "pixabay:383541",
+      "pixabay:3611",
+      "pixabay:215611"
+    ],
+    "mode": "blink",
+    "hook_style": "'Stop saying X, say this instead'",
+    "grade": "faded_film"
   }
 ]
