@@ -214,7 +214,7 @@ CATEGORIES = [
     "a phrasal verb everyone uses but learners rarely get taught",
     "an everyday idiom and what it really means (only mention its origin if you are 100% sure)",
     "two words people mix up (pick a less obvious pair than affect/effect)",
-    "a pronunciation trap in a very common word",
+    "a funny, relatable student moment (the mistake everyone makes and laughs about afterwards)",
     "a polite way to say something that sounds rude when said bluntly",
     "what natives actually say instead of the textbook phrase",
     "a quick 'spot the mistake' challenge",
@@ -223,6 +223,8 @@ CATEGORIES = [
     "phrases that sound confident at work or in a job interview",
     "a word learners misuse because of translation (false friend)",
     "a tiny word that changes the meaning (like 'a few' vs 'few')",
+    "a funny literal-translation mistake and what it really says in English",
+    "a one-line fix for a mistake your viewer made this week",
 ]
 
 HOOK_STYLES = [
@@ -243,6 +245,9 @@ PACES = {  # how an editor would cut each kind of video: voice speed, seconds pe
     "fast": {"rate": "+9%", "cut": 3.2, "trans": 0.2},
     "superfast": {"rate": "+14%", "cut": 2.4, "trans": 0.12},
 }
+
+
+VOICE_CANT = re.compile(r"pronounc|accent|syllable|phonetic|silent (?:letter|k|b|l|h|e)|intonation|word stress|stress on|tongue twister|rhym|sounds? (?:the same|different)|\bipa\b", re.I)
 
 
 def load_ideas():
@@ -269,7 +274,7 @@ def load_ideas():
             txt = re.sub(r"\([^)]*[^\x00-\x7F][^)]*\)", "", m.group(1))  # drop the (Bangla) glosses
             txt = re.sub(r"[^\x20-\x7E\u2014\u2013\u2192]", "", txt)
             txt = re.sub(r"\s+,", ",", re.sub(r"\s+", " ", txt)).strip(" -")
-            if len(txt) >= 4 and not txt.lower().startswith(("skip", "bonus round")):
+            if len(txt) >= 4 and not txt.lower().startswith(("skip", "bonus round")) and not VOICE_CANT.search(txt + " " + section):
                 ideas.append({"series": series, "section": section, "idea": txt})
     return ideas
 
@@ -337,6 +342,16 @@ SAMPLE_LESSON = {
     ],
 }
 
+
+SAMPLE_BLINK = {
+    "mode": "blink", "topic": "I am agree", "title": "Stop saying \"I am agree\" #shorts", "hook_title": "STOP SAYING THIS",
+    "description": "Say I agree.", "hashtags": ["#learnenglish", "#shorts"],
+    "segments": [
+        {"say": "Stop saying \"I am agree.\" Your grammar is crying.", "visual": "rain window", "card": "I am agree", "card_kind": "wrong"},
+        {"say": "It's just \"I agree.\" No \"am\" needed.", "visual": "sunrise mountains", "card": "I agree", "card_kind": "right"},
+        {"say": "Send this to the friend who still says it.", "visual": "ocean waves", "card": "", "card_kind": "neutral"},
+    ],
+}
 
 T0 = time.time()
 
@@ -467,22 +482,30 @@ def gemini_json(prompt, temperature=1.0, images=None):
     raise RuntimeError(f"Gemini failed: {last}")
 
 
-MODES = {  # name: (words lo, hi, segments, description). Everything stays well under 60 seconds.
-    "quick": (38, 56, "4 to 5", "QUICK TIP: one tiny, useful thing, said fast. Hook, the fix, one real example, a one-line ending. No story, no padding."),
-    "explain": (66, 88, "6 to 7", "EXPLAINER: a small story. Hook, a vivid second-person scene where the mistake costs something, one small twist, the fix, a real example, a short ending."),
-    "funny": (52, 78, "5 to 6", "FUNNY: light, a little cheeky. Exaggerate the mistake with a short imaginary scene and a dry punchline, THEN give the real fix. The joke is never at a person's or a religion's expense, and never crude."),
-    "myth": (56, 80, "5 to 6", "MYTH VS TRUTH: open with something most learners believe, flip it ('Not quite.'), explain why in plain words, give the right version and a real example."),
-    "challenge": (46, 68, "5 to 6", "CHALLENGE: a mini quiz. Ask 'Which one is right?' with two options, give the viewer a beat to think ('Pause for a second.'), reveal the answer, say why in one sentence, one example."),
-    "swap": (44, 66, "5 to 6", "UPGRADE: take a boring everyday word or phrase learners overuse and give two or three better ones, each with a tiny real sentence. A little list, but spoken like a friend, never robotic."),
+MODES = {  # name: (words lo, hi, segment range, description). Every style stays well under 60 seconds.
+    "blink": (18, 32, "2 to 3", "BLINK (10 to 14 seconds): one punchy line and one payoff, nothing else. Like a one-liner someone would send to a friend. A micro-fix ('Don't say \"I am agree.\" Say \"I agree.\" Done.') or one dry joke that carries the fix. No story, no explanation, no question at the end."),
+    "quick": (34, 52, "3 to 4", "QUICK TIP (about 20 seconds): the hook, the fix, one real example, a last line with a smile. No story, no padding."),
+    "sketch": (40, 64, "4 to 5", "SKETCH (about 25 seconds): a tiny funny scene told by ONE narrator who plays both parts inside the sentences: 'Your teacher says, \"...\" And you say, \"...\"' then the better line. Never write speaker labels like 'Teacher:' (they would be read aloud). Mock the mistake, never the learner."),
+    "funny": (50, 76, "5 to 6", "FUNNY (about 30 seconds): light, a little cheeky. Exaggerate the mistake in a short imaginary scene with a dry punchline, THEN give the real fix. The joke is never at a person's, a religion's or a country's expense, and never crude."),
+    "myth": (54, 78, "5 to 6", "MYTH VS TRUTH (about 30 seconds): open with something most learners believe, flip it ('Not quite.'), explain why in plain words, give the right version and one real example."),
+    "challenge": (44, 66, "5 to 6", "CHALLENGE (about 25 seconds): a mini quiz. Ask 'Which one is right?' with two options, give a beat to think ('Pause for a second.'), reveal the answer, say why in one sentence, one example."),
+    "swap": (42, 64, "5 to 6", "UPGRADE (about 25 seconds): take a boring word or phrase learners overuse and give two or three better ones, each with a tiny real sentence. A little list, spoken like a friend, never robotic."),
+    "explain": (64, 88, "6 to 7", "EXPLAINER (about 40 seconds): a small story. Hook, a vivid second-person scene where the mistake costs something, one small twist, the fix, a real example, a short ending."),
 }
+MODE_WEIGHT = {"blink": 3, "quick": 3, "sketch": 3, "funny": 3, "myth": 2, "challenge": 2, "swap": 2, "explain": 1}
+SEG_MIN = {"blink": 2, "quick": 3, "sketch": 4}
 
 
 def pick_mode(history):
     forced = os.getenv("MODE_FORCE", "").strip().lower()
     if forced in MODES:
         return forced
-    last = [h.get("mode") for h in history[-2:]]  # never the same style back to back
-    return random.choice([m for m in MODES if m not in last[-1:]] or list(MODES))
+    last = [h.get("mode") for h in history[-2:]]  # never the same style back to back; and not three short ones in a row
+    pool = [m for m in MODES if m not in last[-1:]]
+    short = ("blink", "quick")
+    if len(last) == 2 and all(x in short for x in last):
+        pool = [m for m in pool if m not in short] or pool
+    return random.choices(pool, weights=[MODE_WEIGHT[m] for m in pool])[0]
 
 
 def build_prompt(category, hook_style, recent, notes="", idea=None, mode="explain"):
@@ -492,7 +515,10 @@ def build_prompt(category, hook_style, recent, notes="", idea=None, mode="explai
         if GREETING
         else "No greeting, no intro, no channel name. The very first words ARE the hook."
     )
-    cta = "End on the comment question. Do NOT add a call to action or a sign-off: the closing line is added automatically afterwards."
+    if mode in ("blink", "quick", "funny", "sketch", "swap"):
+        cta = "End on the punchline or the payoff, not on a question. No call to action and no sign-off."
+    else:
+        cta = "End on one tiny question the viewer can answer in the comments. No call to action and no sign-off."
     if NO_PEOPLE:
         visual_rule = (
             'VISUALS: for each segment give "visual", a 2 to 4 word search phrase for stock video that a camera could really film. '
@@ -555,10 +581,19 @@ Never repeat or closely resemble these earlier topics:
 {recent_txt}
 {notes}
 WHO IS TALKING
-One calm, warm, slightly witty person talking to one viewer. Never "guys" or "everyone". Never announce what you are about to do ("let me explain"), never say "in this video". Opinionated but kind.
+A teacher who is secretly still a student: calm, warm, dry-funny, and happy to say "we all do this". One person talking to one viewer. Never "guys" or "everyone". Never announce what you are about to do ("let me explain"), never say "in this video". Laugh at the mistake, never at the learner.
+
+HUMOR (use it in most videos, lightly)
+A small exaggeration, a dry one-liner, a relatable "you, at a job interview" moment, a tiny twist at the end. One joke per video is plenty and the lesson must stay clear. Never crude, never about religion, politics, nationality or looks.
+
+SHARE VALUE
+Aim for a line a learner would send to a friend. Funny, blink and sketch videos may end with a natural line like "Send this to the friend who still says it." Do not use that line in more than one video in three, and never say follow, subscribe, like or "for more".
+
+WHAT THE VOICE CANNOT DO (very important)
+A text-to-speech voice reads the words in a standard American accent and cannot act. So NEVER write anything that depends on how a word sounds or is pronounced: no pronunciation lessons, no spelling a word letter by letter, no "say it like this", no stress or syllable tips, no rhymes as the lesson, no accent comparisons (British versus American or any other), no imitating accents, no sound effects written as words. British versus American differences are fine ONLY as different WORDS or phrases ("lift" versus "elevator"), never as how they sound. Teach meaning, usage, word choice, grammar, politeness, tone-of-meaning and natural phrases instead.
 
 WHAT THE VIEWER GETS
-Every video must leave the viewer able to do something new in their very next conversation: a phrase to copy, a mistake to drop, a trick that works at once. Make that one takeaway obvious and memorable. Give them a reason to come back that is NATURAL and never an ask: e.g. end with a tiny challenge ("Use it once today and see what happens."), or a real hint of what's next ("There's an even politer version, but that's another day."). Never say follow, subscribe, like, share or "for more".
+Every video must leave the viewer able to do something new in their very next conversation: a phrase to copy, a mistake to drop, a trick that works at once. Make that one takeaway obvious and memorable. Give them a reason to come back that is NATURAL and never an ask: e.g. end with a tiny challenge ("Use it once today and see what happens."), or a real hint of what's next ("There's an even politer version, but that's another day."). 
 
 WRITTEN FOR A VOICE (a text-to-speech voice reads this word for word)
 Everything you write is spoken aloud exactly as written. So: no stage directions, no brackets, no "[pause]", no "(laughs)", no instructions about tone, no labels like "Hook:" or "Narrator:". Write pauses with punctuation: a comma is a breath, a full stop is a real pause, "..." a longer one. Short sentences. Quote a word or phrase you are teaching with straight quotes, nothing else in quotes. Spell out numbers, symbols and abbreviations (twenty, percent, for example). Avoid words that are pronounced differently depending on meaning (read, lead, live, wind, tear, bass) unless the sentence makes it obvious. Avoid hard-to-pronounce lists and long parentheses. Make sure each line sounds natural when spoken at a relaxed pace.
@@ -587,7 +622,7 @@ Teach only things that are definitely correct and natural in standard English to
 LENGTH: {nseg} segments, {wlo} to {whi} spoken words in total (this keeps the video well under one minute). Short and punchy beats thorough.
 
 {visual_rule}
-CARD: optional big on-screen text for the key phrase of that segment, max 5 words, otherwise "". card_kind is "wrong" for an incorrect version, "right" for a correct version, "neutral" otherwise. Use cards on 3 to 5 segments.
+CARD: optional big on-screen text for the key phrase of that segment, max 5 words, otherwise "". card_kind is "wrong" for an incorrect version, "right" for a correct version, "neutral" otherwise. Use a card on about half of the segments (at least one).
 
 Return only JSON in exactly this shape:
 {json.dumps(shape, indent=2)}"""
@@ -611,8 +646,9 @@ def clean_hook_title(s):
 
 def validate(lesson, mode=None):
     segs = lesson.get("segments")
-    if not isinstance(segs, list) or not 5 <= len(segs) <= 9:
-        raise ValueError("need 5-9 segments")
+    seg_lo = SEG_MIN.get(mode, 5)
+    if not isinstance(segs, list) or not seg_lo <= len(segs) <= 9:
+        raise ValueError(f"need {seg_lo}-9 segments")
     clean = []
     for s in segs:
         say = clean_text(s.get("say"))
@@ -637,6 +673,8 @@ def validate(lesson, mode=None):
     for b in BANNED:
         if b in spoken:
             raise ValueError(f"contains robotic phrase: {b}")
+    if re.search(r"\b(?:[A-Za-z]-){2,}[A-Za-z]\b", spoken) or re.search(r"pronunc|pronounc|accent|phonetic|syllable|spell it|spelled out|spelt", spoken):
+        raise ValueError("depends on pronunciation, spelling out or accents, which the voice cannot do")
     tags = [t if t.startswith("#") else "#" + t for t in map(clean_text, lesson.get("hashtags") or [])]
     tags = [t.replace(" ", "") for t in tags if len(t) > 1][:6]
     if "#shorts" not in [t.lower() for t in tags]:
@@ -692,7 +730,7 @@ def critic_prompt(lesson):
 def sharpen(lesson):
     """optional editor pass: a retention critic rewrites a weak hook or ending. The result must pass the same checks
     (rules + strict teacher) as any lesson; otherwise the original lesson is kept untouched."""
-    if STORY_MODE != "v2":
+    if STORY_MODE != "v2" or lesson.get("mode") in ("blink",):
         return lesson
     try:
         res = gemini_json(critic_prompt(lesson), 0.6)
@@ -705,7 +743,7 @@ def sharpen(lesson):
             if title:
                 new["hook_title"] = title
             changed.append("hook")
-        if loop_score < 8 and 4 <= len(end.split()) <= 20:
+        if loop_score < 8 and 4 <= len(end.split()) <= 20 and lesson.get('mode') in ('explain', 'myth', 'challenge', None, ''):
             new["segments"][-1]["say"] = end
             changed.append("ending")
         log(f"editor pass: hook {hook_score:g}/10, ending {loop_score:g}/10" + (f" -> rewriting {', '.join(changed)}" if changed else " -> keeping the script"))
@@ -1826,7 +1864,7 @@ def main():
     setup_fonts()
 
     history = load_history()
-    lesson = ensure_cta(validate(SAMPLE_LESSON) if args.offline_test else make_lesson(history))
+    lesson = ensure_cta(validate(SAMPLE_BLINK if os.getenv('OFFLINE_SAMPLE') == 'blink' else SAMPLE_LESSON, 'blink' if os.getenv('OFFLINE_SAMPLE') == 'blink' else None) if args.offline_test else make_lesson(history))
     if os.getenv("PACE_FORCE") in PACES:
         lesson["pace"] = os.getenv("PACE_FORCE")
     segs = lesson["segments"]
@@ -1852,7 +1890,7 @@ def main():
     tokens = text.split()
     voice_path = WORK / "voice.mp3"
     if args.offline_test:
-        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=220:duration=36",
+        run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", f"sine=frequency=220:duration={max(8, round(len(tokens) * 0.4, 1))}",
              "-af", "volume=0.1", "-ar", "24000", "-ac", "1", voice_path])
         wb, sents = [], []
     else:
@@ -1887,6 +1925,8 @@ def main():
         hook_groups_ = hook_groups(tokens, times, n0)
         hgs, hend = hook_groups_
         burst_end = min(b0, max(1.6, min(3.4, hend + 0.12)))
+        burst_end = min(burst_end, max(1.4, total * 0.24))  # short videos get a short burst
+        hgs = [g for g in hgs if g[1] < burst_end - 0.2] or hgs[:1]
         cuts_b = [0.0]
         for _, t0 in hgs[1:]:  # every cut lands on a word that is being spoken
             if t0 - cuts_b[-1] >= 0.3 and burst_end - t0 >= 0.3:
@@ -1924,7 +1964,7 @@ def main():
     if style == "cine":
         # slow motion on the answer and on the ending
         ans = next((bd for bd, s_ in zip(bounds, segs) if s_["card_kind"] == "right" and s_["card"]), None)
-        spans = ([ans] if ans else []) + ([bounds[-1]] if len(bounds) > 2 else [])
+        spans = ([ans] if ans else []) + ([bounds[-1]] if len(bounds) > 3 else [])
         for i, (_, a, b) in enumerate(shots):
             if i >= burst_count and b - a >= 0.8 and any(a >= x - 0.01 and b <= y + 0.01 for x, y in spans):
                 opts.setdefault(i, {})["slow"] = True
