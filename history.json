@@ -1429,5 +1429,23 @@
     "mode": "blink",
     "hook_style": "'Stop saying X, say this instead'",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-16",
+    "topic": "Depend on usage",
+    "title": "Stop Saying Depend Of. Do This Instead.",
+    "category": "500 — English Lesson: Prepositions",
+    "idea": "\"Depend on\" usage",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:28236",
+      "pixabay:128663",
+      "pixabay:259910",
+      "pixabay:150875",
+      "pixabay:236256"
+    ],
+    "mode": "quick",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "golden_hour"
   }
 ]
