@@ -1,0 +1,34 @@
+name: Voice test (listen to voices, including a clone of yours)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-chatterbox-v1
+      - name: Install
+        run: |
+          pip install edge-tts
+          pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install chatterbox-tts
+      - name: Make the samples
+        run: python voice_test.py
+      - name: Publish them as a release you can open on your phone
+        run: |
+          gh release create "voice-test-${{ github.run_number }}" voice_test_out/* \
+            --title "Voice test ${{ github.run_number }}" --notes "Tap each file to listen. YOUR_VOICE_* is the clone of your voice."
