@@ -1447,5 +1447,25 @@
     "mode": "quick",
     "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-17",
+    "topic": "Borrow vs Loan difference",
+    "title": "Stop saying 'Can I loan money?' Get this right!",
+    "category": "500 — What's the Difference: Money & Shopping",
+    "idea": "Borrow vs Loan",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:374784",
+      "pixabay:384550",
+      "pixabay:263333",
+      "pixabay:141212",
+      "pixabay:371020",
+      "pixabay:4853",
+      "pixabay:110923"
+    ],
+    "mode": "sketch",
+    "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
+    "grade": "faded_film"
   }
 ]
