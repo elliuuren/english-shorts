@@ -1508,5 +1508,23 @@
     "mode": "blink",
     "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-18",
+    "topic": "I'm shocking vs I'm shocked",
+    "title": "Why You Should Never Say 'I'm Shocking'",
+    "category": "500 — What's the Difference: Common Confusions in Speech",
+    "idea": "\"I'm shocking\" vs \"I'm shocked\"",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:138351",
+      "pixabay:197440",
+      "pixabay:42396",
+      "pixabay:82042",
+      "pixabay:189290"
+    ],
+    "mode": "funny",
+    "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
+    "grade": "teal_orange"
   }
 ]
