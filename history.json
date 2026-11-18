@@ -1550,5 +1550,27 @@
     "mode": "myth",
     "hook_style": "'Stop saying X, say this instead'",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-18",
+    "topic": "Self-recording for fluency",
+    "title": "Speak Faster: Record Your English",
+    "category": "500 — Speak English Faster: Pronunciation for Beginners",
+    "idea": "Record yourself and compare — simple method",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:108595",
+      "pixabay:226681",
+      "pixabay:321986",
+      "pixabay:283431",
+      "pixabay:24216",
+      "pixabay:8576",
+      "pixabay:38388",
+      "pixabay:63570",
+      "pixabay:278421"
+    ],
+    "mode": "quick",
+    "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
+    "grade": "teal_orange"
   }
 ]
