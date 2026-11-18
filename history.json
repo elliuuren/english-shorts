@@ -1488,5 +1488,25 @@
     "mode": "myth",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "moody_green"
+  },
+  {
+    "date": "2026-11-18",
+    "topic": "very tired to exhausted",
+    "title": "Stop saying very tired",
+    "category": "100 — Say It Better: Format: \"very tired\" → \"exhausted\"",
+    "idea": "very lonely → isolated",
+    "series": "100 — Say It Better",
+    "clips": [
+      "pixabay:34013",
+      "pixabay:269567",
+      "pixabay:7000",
+      "pixabay:325597",
+      "pixabay:34855",
+      "pixabay:131588",
+      "pixabay:184736"
+    ],
+    "mode": "blink",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "faded_film"
   }
 ]
