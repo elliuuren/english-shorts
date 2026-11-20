@@ -1661,5 +1661,26 @@
     "mode": "sketch",
     "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-20",
+    "topic": "Stationary vs Stationery",
+    "title": "Stop Confusing Stationary and Stationery",
+    "category": "500 — English Lesson: Confusing Word Pairs",
+    "idea": "Stationary vs Stationery",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:84916",
+      "pixabay:284568",
+      "pixabay:374783",
+      "pixabay:42410",
+      "pixabay:118355",
+      "pixabay:63338",
+      "pixabay:186195",
+      "pixabay:359041"
+    ],
+    "mode": "swap",
+    "hook_style": "'Stop saying X, say this instead'",
+    "grade": "golden_hour"
   }
 ]
