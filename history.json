@@ -1682,5 +1682,28 @@
     "mode": "swap",
     "hook_style": "'Stop saying X, say this instead'",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-20",
+    "topic": "Weak vs Fragile difference",
+    "title": "Weak vs Fragile: What's the Difference?",
+    "category": "500 — What's the Difference: Health & Body",
+    "idea": "Weak vs Fragile",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:216997",
+      "pixabay:179346",
+      "pixabay:43292",
+      "pixabay:40135",
+      "pixabay:227137",
+      "pixabay:11654",
+      "pixabay:3595",
+      "pixabay:15483",
+      "pixabay:4882",
+      "pixabay:269445"
+    ],
+    "mode": "myth",
+    "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
+    "grade": "midnight"
   }
 ]
