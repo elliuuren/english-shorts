@@ -1705,5 +1705,27 @@
     "mode": "myth",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "midnight"
+  },
+  {
+    "date": "2026-11-21",
+    "topic": "pram vs stroller UK US",
+    "title": "Pram or Stroller? Don't Mix These Up!",
+    "category": "100 — British vs American: Vocabulary — Everyday Life",
+    "idea": "Pram (UK) vs Stroller (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:47872",
+      "pixabay:4225",
+      "pixabay:32630",
+      "pixabay:217955",
+      "pixabay:130585",
+      "pixabay:1191",
+      "pixabay:192792",
+      "pixabay:259481",
+      "pixabay:179207"
+    ],
+    "mode": "swap",
+    "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
+    "grade": "teal_orange"
   }
 ]
