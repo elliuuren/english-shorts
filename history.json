@@ -1727,5 +1727,29 @@
     "mode": "swap",
     "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-21",
+    "topic": "upgrade very tall to towering",
+    "title": "Stop saying 'very tall' (for these things!)",
+    "category": "100 — Say It Better: Format: \"very tired\" → \"exhausted\"",
+    "idea": "very tall → towering",
+    "series": "100 — Say It Better",
+    "clips": [
+      "pixabay:212725",
+      "pixabay:190667",
+      "pixabay:49981",
+      "pixabay:123085",
+      "pixabay:103779",
+      "pixabay:239424",
+      "pixabay:264959",
+      "pixabay:106340",
+      "pixabay:1154",
+      "pixabay:143679",
+      "pixabay:116167"
+    ],
+    "mode": "quick",
+    "hook_style": "challenge a belief ('your teacher never told you this about ...')",
+    "grade": "golden_hour"
   }
 ]
