@@ -1774,5 +1774,31 @@
     "mode": "sketch",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-21",
+    "topic": "US vs UK date formats",
+    "title": "Why You Might Miss Your Flight in the UK",
+    "category": "500 — English Lesson: American vs British English",
+    "idea": "Date format differences (MM/DD vs DD/MM)",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:181014",
+      "pixabay:90086",
+      "pixabay:41712",
+      "pixabay:284562",
+      "pixabay:45512",
+      "pixabay:32628",
+      "pixabay:338589",
+      "pixabay:41745",
+      "pixabay:261197",
+      "pixabay:94680",
+      "pixabay:174994",
+      "pixabay:5643",
+      "pixabay:133319"
+    ],
+    "mode": "funny",
+    "hook_style": "'Stop saying X, say this instead'",
+    "grade": "golden_hour"
   }
 ]
