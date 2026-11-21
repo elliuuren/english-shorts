@@ -1751,5 +1751,28 @@
     "mode": "quick",
     "hook_style": "challenge a belief ('your teacher never told you this about ...')",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-21",
+    "topic": "Funny vs Hilarious difference",
+    "title": "Funny or Hilarious? Stop Making This Mistake",
+    "category": "500 — What's the Difference: Slang & Casual English",
+    "idea": "Funny vs Hilarious",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:23567",
+      "pixabay:387578",
+      "pixabay:150207",
+      "pixabay:28745",
+      "pixabay:223839",
+      "pixabay:184131",
+      "pixabay:267",
+      "pixabay:22354",
+      "pixabay:2222",
+      "pixabay:215494"
+    ],
+    "mode": "sketch",
+    "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
+    "grade": "faded_film"
   }
 ]
