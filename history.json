@@ -1800,5 +1800,27 @@
     "mode": "funny",
     "hook_style": "'Stop saying X, say this instead'",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-21",
+    "topic": "upgrade very angry to furious",
+    "title": "Stop Saying Very Angry (Use This Instead)",
+    "category": "100 — Say It Better: Format: \"very tired\" → \"exhausted\"",
+    "idea": "very angry → furious",
+    "series": "100 — Say It Better",
+    "clips": [
+      "pixabay:304019",
+      "pixabay:53127",
+      "pixabay:315486",
+      "pixabay:217115",
+      "pixabay:12779",
+      "pixabay:287510",
+      "pixabay:4433",
+      "pixabay:133318",
+      "pixabay:23955"
+    ],
+    "mode": "myth",
+    "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
+    "grade": "moody_green"
   }
 ]
