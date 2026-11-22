@@ -1866,5 +1866,29 @@
     "mode": "funny",
     "hook_style": "'Stop saying X, say this instead'",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-22",
+    "topic": "different from to than",
+    "title": "Different From, To, or Than? Here is the Secret",
+    "category": "100 — British vs American: Grammar Differences",
+    "idea": "\"Different from/to\" (UK) vs \"Different from/than\" (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:238727",
+      "pixabay:205589",
+      "pixabay:232938",
+      "pixabay:32290",
+      "pixabay:126805",
+      "pixabay:143163",
+      "pixabay:8756",
+      "pixabay:231167",
+      "pixabay:21941",
+      "pixabay:199127",
+      "pixabay:132435"
+    ],
+    "mode": "swap",
+    "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
+    "grade": "teal_orange"
   }
 ]
