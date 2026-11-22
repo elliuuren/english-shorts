@@ -1845,5 +1845,26 @@
     "mode": "explain",
     "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-22",
+    "topic": "Late vs Delayed difference",
+    "title": "Late vs. Delayed: Stop Your Excuses!",
+    "category": "500 — What's the Difference: Time Words",
+    "idea": "Late vs Delayed",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:124291",
+      "pixabay:262326",
+      "pixabay:280514",
+      "pixabay:10881",
+      "pixabay:209629",
+      "pixabay:50458",
+      "pixabay:65735",
+      "pixabay:1917"
+    ],
+    "mode": "funny",
+    "hook_style": "'Stop saying X, say this instead'",
+    "grade": "golden_hour"
   }
 ]
