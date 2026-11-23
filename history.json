@@ -1933,5 +1933,27 @@
     "mode": "quick",
     "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
     "grade": "steel_blue"
+  },
+  {
+    "date": "2026-11-23",
+    "topic": "Petrol UK vs Gas US",
+    "title": "Petrol or Gas? British vs American English",
+    "category": "100 — British vs American: Vocabulary — Transport",
+    "idea": "Petrol (UK) vs Gas/Gasoline (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:287634",
+      "pixabay:15347",
+      "pixabay:238465",
+      "pixabay:154293",
+      "pixabay:336253",
+      "pixabay:37006",
+      "pixabay:2154",
+      "pixabay:23544",
+      "pixabay:6551"
+    ],
+    "mode": "challenge",
+    "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
+    "grade": "teal_orange"
   }
 ]
