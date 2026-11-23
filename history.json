@@ -1890,5 +1890,28 @@
     "mode": "swap",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-23",
+    "topic": "How Come Question Formation",
+    "title": "The Native Question Trick You Need to Know",
+    "category": "500 — English Lesson: Question Formation",
+    "idea": "Questions native speakers actually ask",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:10747",
+      "pixabay:19999",
+      "pixabay:182064",
+      "pixabay:61621",
+      "pixabay:38059",
+      "pixabay:31806",
+      "pixabay:20466",
+      "pixabay:179363",
+      "pixabay:27230",
+      "pixabay:139153"
+    ],
+    "mode": "explain",
+    "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
+    "grade": "faded_film"
   }
 ]
