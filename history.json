@@ -1955,5 +1955,25 @@
     "mode": "challenge",
     "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-23",
+    "topic": "Then vs Than difference",
+    "title": "Then or Than? Stop Making This Mistake",
+    "category": "500 — What's the Difference: Grammar Confusions Made Simple",
+    "idea": "Then vs Than",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:170756",
+      "pixabay:92840",
+      "pixabay:120141",
+      "pixabay:142370",
+      "pixabay:218358",
+      "pixabay:185092",
+      "pixabay:184736"
+    ],
+    "mode": "sketch",
+    "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
+    "grade": "golden_hour"
   }
 ]
