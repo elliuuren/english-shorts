@@ -1913,5 +1913,25 @@
     "mode": "explain",
     "hook_style": "a real situation: 'Your boss says X. What do you reply?'",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-23",
+    "topic": "talking about your diet simply",
+    "title": "How to Talk About Your Diet Simply",
+    "category": "500 — Speak English Faster: Food & Restaurant English",
+    "idea": "Talking about your diet simply",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:86014",
+      "pixabay:214394",
+      "pixabay:40321",
+      "pixabay:68062",
+      "pixabay:11621",
+      "pixabay:22451",
+      "pixabay:265271"
+    ],
+    "mode": "quick",
+    "hook_style": "curiosity gap: tease the answer, then hold it back for a few seconds",
+    "grade": "steel_blue"
   }
 ]
