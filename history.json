@@ -1999,5 +1999,27 @@
     "mode": "explain",
     "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-24",
+    "topic": "Good at vs good in",
+    "title": "Good At vs Good In: Stop Making This Mistake",
+    "category": "500 — English Lesson: Prepositions",
+    "idea": "\"Good at\" vs \"good in\"",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:218658",
+      "pixabay:140188",
+      "pixabay:2142",
+      "pixabay:4948",
+      "pixabay:47246",
+      "pixabay:22349",
+      "pixabay:16346",
+      "pixabay:85180",
+      "pixabay:4947"
+    ],
+    "mode": "funny",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "golden_hour"
   }
 ]
