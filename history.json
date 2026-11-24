@@ -2040,5 +2040,27 @@
     "mode": "quick",
     "hook_style": "a direct question the viewer cannot help answering in their head",
     "grade": "teal_orange"
+  },
+  {
+    "date": "2026-11-24",
+    "topic": "Zebra crossing vs Crosswalk UK US",
+    "title": "Zebra Crossing or Crosswalk? Don't Get Confused!",
+    "category": "100 — British vs American: Vocabulary — Transport",
+    "idea": "Zebra crossing (UK) vs Crosswalk (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:362806",
+      "pixabay:192444",
+      "pixabay:277139",
+      "pixabay:136554",
+      "pixabay:243119",
+      "pixabay:26452",
+      "pixabay:1043",
+      "pixabay:13441",
+      "pixabay:88921"
+    ],
+    "mode": "funny",
+    "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
+    "grade": "faded_film"
   }
 ]
