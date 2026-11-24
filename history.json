@@ -2021,5 +2021,24 @@
     "mode": "funny",
     "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
     "grade": "golden_hour"
+  },
+  {
+    "date": "2026-11-24",
+    "topic": "Account vs Profile difference",
+    "title": "Account vs Profile: What's the Difference?",
+    "category": "500 — What's the Difference: Technology & Social Media",
+    "idea": "Account vs Profile",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:371448",
+      "pixabay:343872",
+      "pixabay:347075",
+      "pixabay:8064",
+      "pixabay:153456",
+      "pixabay:10480"
+    ],
+    "mode": "quick",
+    "hook_style": "a direct question the viewer cannot help answering in their head",
+    "grade": "teal_orange"
   }
 ]
