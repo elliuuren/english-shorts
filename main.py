@@ -22,7 +22,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import requests
@@ -385,6 +385,38 @@ def save_history(history):
     HISTORY_FILE.write_text(json.dumps(history[-300:], indent=2, ensure_ascii=False))
 
 
+# what the weekly learning step (learn.py) found out about which styles work; optional, absent at first
+EXPLORE = 0.25  # this share of choices ignores what was learned, so new things keep getting tested
+
+
+def load_learned():
+    try:
+        return json.loads((ROOT / "learned.json").read_text())
+    except Exception:
+        return {}
+
+
+LEARNED = load_learned()
+
+
+def learned_w(kind, key):
+    try:
+        return float(LEARNED.get("weights", {}).get(kind, {}).get(str(key), 1.0))
+    except Exception:
+        return 1.0
+
+
+def learned_block():
+    best, worst = LEARNED.get("best") or [], LEARNED.get("worst") or []
+    if not best:
+        return ""
+    line = lambda r: f'- "{r.get("title", "")}" ({r.get("views", 0)} views' + (f', {r["mode"]} style' if r.get("mode") else "") + ")"
+    txt = "WHAT THIS CHANNEL HAS LEARNED (real results; study the pattern, never copy a title)\nTitles that got the MOST views:\n" + "\n".join(line(r) for r in best[:5])
+    if worst:
+        txt += "\nTitles that got the FEWEST views:\n" + "\n".join(line(r) for r in worst[:5])
+    return txt + "\nWrite a title and hook that follow what the best ones have in common, and avoid what the weakest share.\n"
+
+
 # ------------------------------------------------------------------- Gemini
 _models = None
 
@@ -505,7 +537,8 @@ def pick_mode(history):
     short = ("blink", "quick")
     if len(last) == 2 and all(x in short for x in last):
         pool = [m for m in pool if m not in short] or pool
-    return random.choices(pool, weights=[MODE_WEIGHT[m] for m in pool])[0]
+    use = random.random() >= EXPLORE
+    return random.choices(pool, weights=[MODE_WEIGHT[m] * (learned_w("mode", m) if use else 1.0) for m in pool])[0]
 
 
 def build_prompt(category, hook_style, recent, notes="", idea=None, mode="explain"):
@@ -598,6 +631,7 @@ Every video must leave the viewer able to do something new in their very next co
 WRITTEN FOR A VOICE (a text-to-speech voice reads this word for word)
 Everything you write is spoken aloud exactly as written. So: no stage directions, no brackets, no "[pause]", no "(laughs)", no instructions about tone, no labels like "Hook:" or "Narrator:". Write pauses with punctuation: a comma is a breath, a full stop is a real pause, "..." a longer one. Short sentences. Quote a word or phrase you are teaching with straight quotes, nothing else in quotes. Spell out numbers, symbols and abbreviations (twenty, percent, for example). Avoid words that are pronounced differently depending on meaning (read, lead, live, wind, tear, bass) unless the sentence makes it obvious. Avoid hard-to-pronounce lists and long parentheses. Make sure each line sounds natural when spoken at a relaxed pace.
 
+{learned_block()}
 HOW IT MUST SOUND
 Write the way a warm, funny friend explains something over coffee, not the way a teacher or textbook talks. Use contractions (you're, it's, don't). Mix very short sentences with slightly longer ones. It's fine to start with "And", "But" or "Look,". Plain everyday words only. One idea per sentence. Imagine reading every line out loud; if it sounds written instead of spoken, rewrite it.
 Never use: "dive in", "delve", "game-changer", "unlock", "elevate", "journey", "in today's video", "welcome back", "let's get started", "buckle up". No emojis, hashtags, stage directions or sound effects inside spoken lines. Write numbers as words.
@@ -776,7 +810,9 @@ def make_lesson(history):
     recent_cats = [h.get("category") for h in history[-4:]]
     category = random.choice([c for c in CATEGORIES if c not in recent_cats] or CATEGORIES)
     last_hs = [h.get('hook_style') for h in history[-2:]]
-    hook_style = random.choice([x for x in HOOK_STYLES if x not in last_hs] or HOOK_STYLES)
+    hs_pool = [x for x in HOOK_STYLES if x not in last_hs] or HOOK_STYLES
+    use_l = random.random() >= EXPLORE
+    hook_style = random.choices(hs_pool, weights=[learned_w("hook_style", x) if use_l else 1.0 for x in hs_pool])[0]
     mode = pick_mode(history)
     ideas = load_ideas()
     done = {h.get("idea") for h in history if h.get("idea")}
@@ -786,7 +822,10 @@ def make_lesson(history):
         # rotate through the idea files so one series doesn't dominate
         last = [h.get("series") for h in history[-2:]]
         pool = [i for i in fresh if i["series"] not in last] or fresh
-        return random.choice(pool) if pool else None
+        if not pool:
+            return None
+        use = random.random() >= EXPLORE
+        return random.choices(pool, weights=[learned_w("series", i["series"]) if use else 1.0 for i in pool])[0]
 
     idea = pick_idea()
     if idea:
@@ -2036,6 +2075,7 @@ def main():
 
     if args.offline_test:
         return
+    vid = ""
     if args.no_upload:
         log("--no-upload: skipping YouTube")
     elif not all(os.getenv(k) for k in ("YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN")):
@@ -2043,8 +2083,14 @@ def main():
     else:
         vid = upload_youtube(final, lesson)
         log(f"uploaded: https://youtube.com/shorts/{vid}  ({YT_PRIVACY})")
+        try:  # also post it as a Reel on Facebook and Instagram (skipped when those secrets are not set)
+            import social
 
-    history.append({"date": date.today().isoformat(), "topic": lesson["topic"], "title": lesson["title"], "category": lesson.get("category", ""), "idea": lesson.get("idea", ""), "series": lesson.get("series", ""), "clips": list(ACCEPTED), "mode": lesson.get("mode", ""), "hook_style": lesson.get("hook_style", ""), "grade": globals().get("GRADE_NAME", "")})
+            social.post_everywhere(final, f"{lesson['title']}\n\n{lesson['description']}\n\n" + " ".join(lesson["hashtags"]), log)
+        except Exception as e:
+            log(f"social posting skipped: {str(e)[:200]}")
+
+    history.append({"date": date.today().isoformat(), "topic": lesson["topic"], "title": lesson["title"], "category": lesson.get("category", ""), "idea": lesson.get("idea", ""), "series": lesson.get("series", ""), "clips": list(ACCEPTED), "mode": lesson.get("mode", ""), "hook_style": lesson.get("hook_style", ""), "grade": globals().get("GRADE_NAME", ""), "video_id": vid or "", "published": datetime.now(timezone.utc).isoformat() if vid else "", "secs": round(total, 1), "hook": segs[0]["say"], "words": len(tokens), "style": style})
     save_history(history)
 
 
