@@ -2121,5 +2121,32 @@
     "hook": "Is it wrong to say take a decision?",
     "words": 76,
     "style": "cine"
+  },
+  {
+    "date": "2026-11-25",
+    "topic": "Smart vs Intelligent difference",
+    "title": "Most people misuse 'smart' and 'intelligent'.",
+    "category": "500 — What's the Difference: Everyday Word Pairs",
+    "idea": "Smart vs Intelligent",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:267503",
+      "pixabay:11168",
+      "pixabay:8995",
+      "pixabay:27444",
+      "pixabay:22354",
+      "pixabay:134252",
+      "pixabay:302971",
+      "pixabay:186195"
+    ],
+    "mode": "quick",
+    "hook_style": "challenge a belief ('your teacher never told you this about ...')",
+    "grade": "faded_film",
+    "video_id": "nzDLmJBhD8g",
+    "published": "2026-11-25T20:24:08.266660+00:00",
+    "secs": 20.0,
+    "hook": "You think 'smart' and 'intelligent' are synonyms?",
+    "words": 48,
+    "style": "cine"
   }
 ]
