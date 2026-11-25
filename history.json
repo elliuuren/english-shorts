@@ -2062,5 +2062,34 @@
     "mode": "funny",
     "hook_style": "a bold contrarian line ('you don't need more vocabulary, you need this')",
     "grade": "faded_film"
+  },
+  {
+    "date": "2026-11-25",
+    "topic": "Reporting a small problem simply",
+    "title": "How to Report a Small Problem at Work",
+    "category": "500 — Speak English Faster: English for Work/School (Beginner)",
+    "idea": "Reporting a small problem simply",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:62134",
+      "pixabay:295526",
+      "pixabay:8097",
+      "pixabay:217955",
+      "pixabay:172491",
+      "pixabay:34",
+      "pixabay:84916",
+      "pixabay:38057",
+      "pixabay:63535",
+      "pixabay:11186"
+    ],
+    "mode": "swap",
+    "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
+    "grade": "teal_orange",
+    "video_id": "h1pb4WtJWC4",
+    "published": "2026-11-25T10:43:50.301048+00:00",
+    "secs": 17.2,
+    "hook": "Stop calling every small problem a disaster!",
+    "words": 53,
+    "style": "cine"
   }
 ]
