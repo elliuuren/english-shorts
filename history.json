@@ -2234,5 +2234,31 @@
     "hook": "One of these common words means... crazy.",
     "words": 82,
     "style": "cine"
+  },
+  {
+    "date": "2026-11-26",
+    "topic": "Centre versus Center spelling",
+    "title": "Centre or Center? British vs American Spelling",
+    "category": "100 — British vs American: Spelling Differences",
+    "idea": "Centre (UK) vs Center (US)",
+    "series": "100 — British vs American",
+    "clips": [
+      "pixabay:46137",
+      "pixabay:248729",
+      "pixabay:173887",
+      "pixabay:292363",
+      "pixabay:63891",
+      "pixabay:263594",
+      "pixabay:146047"
+    ],
+    "mode": "sketch",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "faded_film",
+    "video_id": "PY1S1XG9cVg",
+    "published": "2026-11-26T22:46:12.274245+00:00",
+    "secs": 15.5,
+    "hook": "Centre or center: which spelling triggers your spellcheck?",
+    "words": 45,
+    "style": "cine"
   }
 ]
