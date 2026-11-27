@@ -2285,5 +2285,33 @@
     "hook": "Your boss says, where is Mark? And you reply, she is at his desk. Oops.",
     "words": 54,
     "style": "cine"
+  },
+  {
+    "date": "2026-11-27",
+    "topic": "Pen vs Pan meaning",
+    "title": "Do You Write With a Pen or a Pan?",
+    "category": "500 — What's the Difference: Similar-Sounding Words",
+    "idea": "Pen vs Pan",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:246151",
+      "pixabay:294617",
+      "pixabay:409",
+      "pixabay:274936",
+      "pixabay:2818",
+      "pixabay:63340",
+      "pixabay:44575",
+      "pixabay:113748",
+      "pixabay:138340"
+    ],
+    "mode": "funny",
+    "hook_style": "quiz: 'Which one is correct?' and a beat before the answer",
+    "grade": "faded_film",
+    "video_id": "UZvOqSfeN0I",
+    "published": "2026-11-27T11:13:08.560529+00:00",
+    "secs": 17.8,
+    "hook": "Are you really writing letters with a pan?",
+    "words": 61,
+    "style": "cine"
   }
 ]
