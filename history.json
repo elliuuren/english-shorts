@@ -2368,5 +2368,32 @@
     "hook": "Your boss asks favorite color? Don't just say 'Blue'!",
     "words": 50,
     "style": "cine"
+  },
+  {
+    "date": "2026-11-28",
+    "topic": "Sale versus Discount difference",
+    "title": "Sale vs Discount: Stop Making This Shopping Mistake",
+    "category": "500 — What's the Difference: Money & Shopping",
+    "idea": "Sale vs Discount",
+    "series": "500 — What's the Difference",
+    "clips": [
+      "pixabay:49",
+      "pixabay:66967",
+      "pixabay:130426",
+      "pixabay:63973",
+      "pixabay:22408",
+      "pixabay:61621",
+      "pixabay:31806",
+      "pixabay:15483"
+    ],
+    "mode": "swap",
+    "hook_style": "social stakes: 'this one word makes you sound like a beginner'",
+    "grade": "steel_blue",
+    "video_id": "YJjFPuacVmY",
+    "published": "2026-11-28T05:10:50.336478+00:00",
+    "secs": 15.3,
+    "hook": "Stop asking for a sale in English.",
+    "words": 49,
+    "style": "cine"
   }
 ]
