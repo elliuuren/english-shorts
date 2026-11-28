@@ -2422,5 +2422,30 @@
     "hook": "Five words that mean almost never.",
     "words": 44,
     "style": "cine"
+  },
+  {
+    "date": "2026-11-28",
+    "topic": "excuse me versus sorry",
+    "title": "Excuse Me or Sorry? Stop Mixing Them Up!",
+    "category": "500 — Speak English Faster: Daily Basic Phrases",
+    "idea": "\"Excuse me\" vs \"sorry\" — the difference",
+    "series": "500 — Speak English Faster",
+    "clips": [
+      "pixabay:364579",
+      "pixabay:213035",
+      "pixabay:356398",
+      "pixabay:163258",
+      "pixabay:37006",
+      "pixabay:80670"
+    ],
+    "mode": "blink",
+    "hook_style": "a direct question the viewer cannot help answering in their head",
+    "grade": "teal_orange",
+    "video_id": "K8s611OsJlM",
+    "published": "2026-11-28T14:43:44.363755+00:00",
+    "secs": 7.5,
+    "hook": "Did you bump into someone, or are you about to?",
+    "words": 19,
+    "style": "cine"
   }
 ]
