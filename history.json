@@ -2395,5 +2395,32 @@
     "hook": "Stop asking for a sale in English.",
     "words": 49,
     "style": "cine"
+  },
+  {
+    "date": "2026-11-28",
+    "topic": "Idiom once in a blue moon",
+    "title": "A Better Phrase for 'Almost Never'",
+    "category": "500 — English Lesson: Idioms & Expressions",
+    "idea": "\"Once in a blue moon\"",
+    "series": "500 — English Lesson",
+    "clips": [
+      "pixabay:10747",
+      "pixabay:197440",
+      "pixabay:31342",
+      "pixabay:8016",
+      "pixabay:137472",
+      "pixabay:148100",
+      "pixabay:2775",
+      "pixabay:224696"
+    ],
+    "mode": "sketch",
+    "hook_style": "a tiny list teaser ('two words that ...') that you actually deliver on",
+    "grade": "faded_film",
+    "video_id": "VN_U76uxLn8",
+    "published": "2026-11-28T10:50:47.301587+00:00",
+    "secs": 15.8,
+    "hook": "Five words that mean almost never.",
+    "words": 44,
+    "style": "cine"
   }
 ]
